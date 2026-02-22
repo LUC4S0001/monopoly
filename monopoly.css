@@ -1,0 +1,32 @@
+body { font-family: sans-serif; background-color: #f0f0f0; text-align: center; }
+.box { background: white; padding: 20px; border-radius: 8px; max-width: 400px; margin: 0 auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+.hidden { display: none !important; }
+input { padding: 8px; margin: 5px; width: 70%; }
+button { padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+button:disabled { background: #ccc; cursor: not-allowed; }
+.separator { margin: 15px 0; font-weight: bold; color: #666; }
+
+/* LE PLATEAU */
+.plateau {
+    display: grid;
+    grid-template-columns: repeat(11, 50px);
+    grid-template-rows: repeat(11, 50px);
+    gap: 2px;
+    background-color: #bfdcae;
+    border: 5px solid #333;
+    width: fit-content;
+    margin: 20px auto;
+    position: relative;
+}
+.case { background: white; border: 1px solid #999; display: flex; justify-content: center; align-items: center; font-size: 10px; position: relative; }
+
+/* LES PIONS DES JOUEURS */
+.pion { width: 15px; height: 15px; border-radius: 50%; border: 2px solid white; position: absolute; transition: all 0.5s ease; box-shadow: 2px 2px 2px rgba(0,0,0,0.5); }
+
+/* Couleurs des 6 joueurs */
+.pion-0 { background-color: red; top: 2px; left: 2px; }
+.pion-1 { background-color: blue; top: 2px; right: 2px; }
+.pion-2 { background-color: green; bottom: 2px; left: 2px; }
+.pion-3 { background-color: orange; bottom: 2px; right: 2px; }
+.pion-4 { background-color: purple; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+.pion-5 { background-color: black; top: 15px; left: 15px; }

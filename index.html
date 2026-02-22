@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Monopoly P2P - Multijoueur</title>
+    <link rel="stylesheet" href="monopoly.css">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+</head>
+<body>
+
+    <h1>Monopoly P2P</h1>
+
+    <div id="ecran-login" class="box">
+        <h3>Qui es-tu ?</h3>
+        <input type="text" id="mon-pseudo" placeholder="Ton pseudo">
+        <br>
+        <button onclick="creerPartie()">Créer une partie (Hôte)</button>
+        <div class="separator">OU</div>
+        <input type="text" id="id-hote-input" placeholder="ID de l'hôte pour rejoindre">
+        <button onclick="rejoindrePartie()">Rejoindre une partie</button>
+    </div>
+
+    <div id="ecran-lobby" class="box hidden">
+        <h3>Salle d'attente</h3>
+        <p>Partage cet ID à tes amis : <strong id="affichage-id" style="color:blue; font-size:1.2em;">...</strong></p>
+        
+        <h4>Joueurs prêts :</h4>
+        <ul id="liste-joueurs-lobby"></ul>
+
+        <button id="btn-lancer-partie" class="hidden" onclick="demarrerLaPartie()">Démarrer la partie !</button>
+        <p id="message-attente">En attente de l'hôte...</p>
+    </div>
+
+    <div id="ecran-jeu" class="hidden">
+        <div class="infos-jeu">
+            <p>C'est le tour de : <strong id="tour-joueur">...</strong></p>
+            <button id="btn-lancer-des" onclick="actionLancerDes()" disabled>Lancer les dés</button>
+            <div id="historique"></div>
+        </div>
+
+        <div id="plateau" class="plateau">
+            </div>
+    </div>
+
+    <script src="monopoly.js"></script>
+</body>
+</html>
