@@ -1,32 +1,332 @@
-body { font-family: sans-serif; background-color: #f0f0f0; text-align: center; }
-.box { background: white; padding: 20px; border-radius: 8px; max-width: 400px; margin: 0 auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-.hidden { display: none !important; }
-input { padding: 8px; margin: 5px; width: 70%; }
-button { padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
-button:disabled { background: #ccc; cursor: not-allowed; }
-.separator { margin: 15px 0; font-weight: bold; color: #666; }
+body { 
+    font-family: sans-serif; 
+    background-color: #121212; 
+    color: #e0e0e0;
+    text-align: center; 
+    margin: 0; 
+    padding: 10px;
+}
 
-/* LE PLATEAU */
+.box { background: #1e1e1e; padding: 15px; border-radius: 8px; max-width: 400px; margin: 0 auto; box-shadow: 0 4px 10px rgba(0,0,0,0.6); border: 1px solid #333; }
+.hidden { display: none !important; }
+input { padding: 8px; margin: 5px; width: 70%; background-color: #2c2c2c; color: white; border: 1px solid #555; border-radius: 4px; }
+button { padding: 10px 20px; background: #208337; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+button:disabled { background: #444; color: #888; cursor: not-allowed; }
+.separator { margin: 15px 0; font-weight: bold; color: #888; }
+
+/* ----------------------------------- */
+/* LE PLATEAU RESPONSIVE (ÉLASTIQUE)  */
+/* ----------------------------------- */
 .plateau {
     display: grid;
-    grid-template-columns: repeat(11, 50px);
-    grid-template-rows: repeat(11, 50px);
+    grid-template-columns: repeat(11, 1fr);
+    grid-template-rows: repeat(11, 1fr);
     gap: 2px;
-    background-color: #bfdcae;
-    border: 5px solid #333;
-    width: fit-content;
-    margin: 20px auto;
-    position: relative;
+    background-color: #1b2e20;
+    border: 3px solid #000;
+    width: 95vw; 
+    max-width: 92vh; 
+    aspect-ratio: 1 / 1; 
+    margin: 15px auto;
 }
-.case { background: white; border: 1px solid #999; display: flex; justify-content: center; align-items: center; font-size: 10px; position: relative; }
+
+/* L'INTÉRIEUR D'UNE CASE */
+.case { 
+    background: #262626; 
+    border: 1px solid #444; 
+    display: flex; 
+    flex-direction: column; 
+    justify-content: space-between; 
+    align-items: center; 
+    padding: 1px;
+    box-sizing: border-box;
+    /* LES DEUX LIGNES QUI AVAIENT SAUTÉ : */
+    position: relative; 
+    overflow: visible !important; 
+}
+
+.zone-maisons {
+    height: 15%; 
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 1px;
+}
+
+.nom-terrain {
+    font-size: clamp(5px, 1.2vmin, 12px); 
+    font-weight: bold;
+    text-align: center;
+    word-wrap: break-word; 
+    width: 100%;
+    line-height: 1; 
+    color: #f0f0f0;
+}
+
+.zone-pions {
+    display: flex;
+    flex-wrap: wrap; 
+    justify-content: center;
+    align-items: flex-end; 
+    gap: 1px;
+    height: 30%; 
+    width: 100%;
+    padding-bottom: 2px;
+}
 
 /* LES PIONS DES JOUEURS */
-.pion { width: 15px; height: 15px; border-radius: 50%; border: 2px solid white; position: absolute; transition: all 0.5s ease; box-shadow: 2px 2px 2px rgba(0,0,0,0.5); }
+.pion { 
+    width: clamp(8px, 1.5vmin, 16px); 
+    height: clamp(8px, 1.5vmin, 16px); 
+    border-radius: 50%; 
+    border: 1px solid #fff; 
+    box-shadow: 1px 1px 3px rgba(0,0,0,0.8); 
+}
 
-/* Couleurs des 6 joueurs */
-.pion-0 { background-color: red; top: 2px; left: 2px; }
-.pion-1 { background-color: blue; top: 2px; right: 2px; }
-.pion-2 { background-color: green; bottom: 2px; left: 2px; }
-.pion-3 { background-color: orange; bottom: 2px; right: 2px; }
-.pion-4 { background-color: purple; top: 50%; left: 50%; transform: translate(-50%, -50%); }
-.pion-5 { background-color: black; top: 15px; left: 15px; }
+.pion-0 { background-color: #ff4d4d; } 
+.pion-1 { background-color: #4da6ff; } 
+.pion-2 { background-color: #33cc33; } 
+.pion-3 { background-color: #ff9900; } 
+.pion-4 { background-color: #9933cc; } 
+
+/* ----------------------------------- */
+/* LE CENTRE DU PLATEAU                */
+/* ----------------------------------- */
+.centre-plateau {
+    grid-column: 2 / 11;
+    grid-row: 2 / 11;
+    background-color: #1b2e20; 
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 20px;
+    color: #e0e0e0;
+}
+
+.centre-plateau h2 {
+    font-size: clamp(20px, 5vmin, 40px);
+    margin: 0 0 15px 0;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #ffffff;
+}
+
+.centre-plateau p {
+    font-size: clamp(14px, 2.5vmin, 24px);
+    margin-bottom: 20px;
+}
+
+.centre-plateau button {
+    font-size: clamp(14px, 2vmin, 20px);
+    padding: 15px 30px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+    transition: transform 0.1s;
+}
+
+.centre-plateau button:active:not(:disabled) {
+    transform: scale(0.95); 
+}
+
+#historique {
+    font-size: clamp(12px, 2vmin, 18px);
+    font-style: italic;
+    color: #ccc;
+    background: rgba(0, 0, 0, 0.4); 
+    padding: 10px 20px;
+    border-radius: 20px;
+    border: 1px solid #444;
+}
+
+/* --- STYLE POUR LES IMAGES DES CASES --- */
+.image-case {
+    position: absolute;
+    width: clamp(30px, 3.5vmin, 40px); 
+    height: clamp(30px, 3.5vmin, 40px);
+    border-radius: 50%;
+    border: 2px solid #555; 
+    box-shadow: 0 2px 5px rgba(0,0,0,0.6);
+    z-index: 5; 
+    background-color: #262626; 
+    object-fit: cover; 
+}
+
+.img-bas { top: 0; left: 50%; transform: translate(-50%, -50%); }
+.img-gauche { top: 50%; right: 0; transform: translate(50%, -50%); }
+.img-haut { bottom: 0; left: 50%; transform: translate(-50%, 50%); }
+.img-droite { top: 50%; left: 0; transform: translate(-50%, -50%); }
+
+/* --- ESPACEMENT POUR NE PAS CACHER LE TEXTE --- */
+.case-bas { padding-top: clamp(15px, 3vmin, 25px); }
+.case-gauche { padding-right: clamp(15px, 3vmin, 25px); }
+.case-haut { padding-bottom: clamp(15px, 3vmin, 25px); }
+.case-droite { padding-left: clamp(15px, 3vmin, 25px); }
+
+/* ========================================= */
+/* DESIGN SPÉCIAL : CASE PRISON (Case 10)    */
+/* ========================================= */
+.case.case-prison {
+    padding: 0 !important;
+    background-color: #3d1f1f; 
+}
+
+.zone-en-prison {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 65%; 
+    height: 65%;
+    border-bottom: 2px solid #555;
+    border-left: 2px solid #555;
+    background-color: #1e1e1e; 
+    z-index: 2;
+}
+
+.zone-en-prison img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain; 
+    padding: 2px;
+    box-sizing: border-box;
+}
+
+.zone-visite {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end; 
+    padding: 3px;
+    box-sizing: border-box;
+}
+
+.visite-texte {
+    font-size: clamp(6px, 1.2vmin, 10px);
+    font-weight: bold;
+    text-align: left; 
+    color: #e0e0e0;
+}
+
+.case-prison .zone-pions {
+    height: 35%; 
+    width: 100%;
+    justify-content: flex-start;
+}
+
+/* ========================================= */
+/* MISE EN PAGE : PLATEAU + PANNEAU DROIT    */
+/* ========================================= */
+#zone-globale-jeu {
+    display: flex;
+    flex-wrap: wrap; /* Si l'écran est trop petit, le panneau ira en dessous */
+    justify-content: center;
+    align-items: flex-start;
+    gap: 20px;
+    width: 100%;
+}
+
+/* On enlève l'ancienne marge auto du plateau pour qu'il se place bien à gauche */
+.plateau {
+    margin: 0 !important;
+}
+
+#panneau-droit {
+    background-color: #1e1e1e;
+    border: 2px solid #444;
+    border-radius: 8px;
+    padding: 15px;
+    min-width: 220px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.6);
+}
+
+#panneau-droit h3 {
+    margin-top: 0;
+    border-bottom: 1px solid #555;
+    padding-bottom: 10px;
+    color: #fff;
+}
+
+#tableau-scores {
+    display: flex;
+    flex-direction: column; /* Les joueurs sont listés de haut en bas */
+    gap: 10px;
+    width: 100%;
+}
+
+.score-joueur {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid #444;
+    border-left: 4px solid white; /* La couleur de la bordure change avec le JS */
+    padding: 10px 15px;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between; /* Sépare le pseudo à gauche et l'argent à droite */
+    align-items: center;
+}
+
+.score-joueur span {
+    font-size: clamp(12px, 1.8vmin, 16px);
+    color: #ccc;
+    font-weight: bold;
+}
+
+.score-joueur strong {
+    font-size: clamp(14px, 2vmin, 18px);
+    color: #4da6ff; /* Bleu "billet" */
+}
+
+.prix-terrain {
+    display: block;
+    font-size: clamp(6px, 1.2vmin, 11px);
+    font-weight: normal;
+    color: #aaaaaa; /* Gris clair pour bien s'intégrer au thème sombre */
+    margin-top: 3px;
+}
+
+/* ========================================= */
+/* MODAL (POP-UP) D'ACHAT DE TERRAIN         */
+/* ========================================= */
+#modal-achat {
+    position: fixed;
+    top: 0; 
+    left: 0; 
+    width: 100vw; 
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.85); /* Assombrit tout le reste de l'écran */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000; /* S'assure que la fenêtre est au premier plan */
+}
+
+.modal-content {
+    background: #1e1e1e;
+    padding: 30px;
+    border-radius: 10px;
+    border: 2px solid #555;
+    text-align: center;
+    box-shadow: 0 0 30px rgba(0,0,0,1);
+    color: #fff;
+    min-width: 250px;
+}
+
+.modal-content h3 {
+    margin-top: 0;
+    color: #f0f0f0;
+}
+
+.modal-content p {
+    font-size: 18px;
+    margin-bottom: 25px;
+}
+
+.modal-content strong {
+    color: #4da6ff;
+}
+
+.modal-buttons {
+    display: flex;
+    justify-content: space-around;
+}

@@ -2,14 +2,11 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Monopoly P2P - Multijoueur</title>
+    <title>Monopoly - Multijoueur</title>
     <link rel="stylesheet" href="monopoly.css">
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
 <body>
-
-    <h1>Monopoly P2P</h1>
-
     <div id="ecran-login" class="box">
         <h3>Qui es-tu ?</h3>
         <input type="text" id="mon-pseudo" placeholder="Ton pseudo">
@@ -32,14 +29,36 @@
     </div>
 
     <div id="ecran-jeu" class="hidden">
-        <div class="infos-jeu">
-            <p>C'est le tour de : <strong id="tour-joueur">...</strong></p>
-            <button id="btn-lancer-des" onclick="actionLancerDes()" disabled>Lancer les dés</button>
-            <div id="historique"></div>
+        
+        <div id="zone-globale-jeu">
+            
+            <div id="plateau" class="plateau">
+                <div class="centre-plateau">
+                    <h2>Monopoly</h2>
+                    <p>Tour de : <strong id="tour-joueur">...</strong></p>
+                    <button id="btn-lancer-des" onclick="actionLancerDes()" disabled>Lancer les dés</button>
+                    <div id="historique">La partie commence !</div>
+                </div>
+            </div>
+
+            <div id="panneau-droit">
+                <h3>Finances</h3>
+                <div id="tableau-scores"></div>
+            </div>
+
         </div>
 
-        <div id="plateau" class="plateau">
+    </div>
+
+    <div id="modal-achat" class="hidden">
+        <div class="modal-content">
+            <h3 id="nom-terrain-achat">Nom du terrain</h3>
+            <p>Prix : <strong id="prix-terrain-achat">0 €</strong></p>
+            <div class="modal-buttons">
+                <button id="btn-acheter" onclick="actionAcheterTerrain()">Acheter</button>
+                <button id="btn-passer" onclick="actionPasserTerrain()" style="background-color: #d9534f;">Passer</button>
             </div>
+        </div>
     </div>
 
     <script src="monopoly.js"></script>
