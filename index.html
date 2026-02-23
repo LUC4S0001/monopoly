@@ -8,46 +8,48 @@
 </head>
 <body>
     <div id="ecran-login" class="box">
-        <h3>Qui es-tu ?</h3>
+        <h3>Rentrez votre pseudo :</h3>
         <input type="text" id="mon-pseudo" placeholder="Ton pseudo">
         <br>
-        <button onclick="creerPartie()">Créer une partie (Hôte)</button>
+        <button onclick="creerPartie()">Créer une partie</button>
         <div class="separator">OU</div>
         <input type="text" id="id-hote-input" placeholder="ID de l'hôte pour rejoindre">
         <button onclick="rejoindrePartie()">Rejoindre une partie</button>
     </div>
 
     <div id="ecran-lobby" class="box hidden">
-        <h3>Salle d'attente</h3>
-        <p>Partage cet ID à tes amis : <strong id="affichage-id" style="color:blue; font-size:1.2em;">...</strong></p>
-        
-        <h4>Joueurs prêts :</h4>
-        <ul id="liste-joueurs-lobby"></ul>
-
-        <button id="btn-lancer-partie" class="hidden" onclick="demarrerLaPartie()">Démarrer la partie !</button>
+        <h2>Salon d'attente</h2>
+        <p>ID de la partie : <strong id="affichage-id">...</strong> 
+           <button id="btn-copier" class="hidden" onclick="copierId()" style="padding: 4px 8px; font-size: 12px; margin-left: 10px; background-color: #4da6ff;">📋 Copier</button>
+        </p>
+        <p>Joueurs connectés :</p>
+        <ul id="liste-joueurs-lobby" style="list-style: none; padding: 0;"></ul>
+        <button id="btn-lancer-partie" class="hidden" onclick="demarrerLaPartie()">Lancer la partie</button>
         <p id="message-attente">En attente de l'hôte...</p>
     </div>
 
     <div id="ecran-jeu" class="hidden">
-        
         <div id="zone-globale-jeu">
-            
             <div id="plateau" class="plateau">
                 <div class="centre-plateau">
                     <h2>Monopoly</h2>
                     <p>Tour de : <strong id="tour-joueur">...</strong></p>
                     <button id="btn-lancer-des" onclick="actionLancerDes()" disabled>Lancer les dés</button>
-                    <div id="historique">La partie commence !</div>
-                </div>
+                    </div>
             </div>
 
             <div id="panneau-droit">
                 <h3>Finances</h3>
                 <div id="tableau-scores"></div>
+
+                <h3 style="margin-top: 15px;">Historique</h3>
+                <div id="historique">
+                    <ul id="liste-historique">
+                        <li>La partie commence !</li>
+                    </ul>
+                </div>
             </div>
-
         </div>
-
     </div>
 
     <div id="modal-achat" class="hidden">
@@ -57,6 +59,58 @@
             <div class="modal-buttons">
                 <button id="btn-acheter" onclick="actionAcheterTerrain()">Acheter</button>
                 <button id="btn-passer" onclick="actionPasserTerrain()" style="background-color: #d9534f;">Passer</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-prison" class="hidden">
+        <div class="modal-content">
+            <h3>👮 Vous êtes en Prison !</h3>
+            <p>Comment voulez-vous en sortir ?</p>
+            <div class="modal-buttons" style="flex-direction: column; gap: 10px;">
+                <button onclick="actionPrison('payer')">Payer 50 €</button>
+                <button id="btn-prison-carte" onclick="actionPrison('carte')">Utiliser une carte</button>
+                <button onclick="actionPrison('des')" style="background-color: #f0ad4e; color: #333; font-weight: bold;">Tenter un Double aux dés</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-infos-terrain" class="hidden">
+        <div class="modal-content card-terrain">
+            <h3 id="info-nom-terrain">Nom du terrain</h3>
+            
+            <div id="info-loyers-standard" class="loyers-grid">
+                <span class="label-loyer">Loyer terrain nu</span> <span id="loyer-0" class="valeur-loyer">0 €</span>
+                <span class="label-loyer">Avec 1 maison</span> <span id="loyer-1" class="valeur-loyer">0 €</span>
+                <span class="label-loyer">Avec 2 maisons</span> <span id="loyer-2" class="valeur-loyer">0 €</span>
+                <span class="label-loyer">Avec 3 maisons</span> <span id="loyer-3" class="valeur-loyer">0 €</span>
+                <span class="label-loyer">Avec 4 maisons</span> <span id="loyer-4" class="valeur-loyer">0 €</span>
+                <span class="label-loyer">Avec un Hôtel</span> <span id="loyer-5" class="valeur-loyer">0 €</span>
+            </div>
+            
+            <div id="info-loyers-speciaux" class="loyers-grid hidden">
+                <p id="texte-loyer-special" style="grid-column: span 2; text-align: center; line-height: 1.5; color: #ccc;"></p>
+            </div>
+
+            <div class="infos-prix-bas">
+                <div class="prix-item">
+                    <span class="icone-prix">Achat</span>
+                    <strong id="info-prix-achat">0 €</strong>
+                </div>
+                <div class="prix-item" id="bloc-prix-maison">
+                    <span class="icone-prix">🏠 Maison</span>
+                    <strong id="info-prix-maison">0 €</strong>
+                </div>
+                <div class="prix-item" id="bloc-prix-hotel">
+                    <span class="icone-prix">🏨 Hôtel</span>
+                    <strong id="info-prix-hotel">0 €</strong>
+                </div>
+            </div>
+            
+            <div class="modal-buttons">
+                <button id="btn-vendre" onclick="actionVendre()" style="background-color: #ff9900; display: none;">Vendre</button>
+                <button id="btn-construire" onclick="actionConstruire()" style="background-color: #28a745; display: none;">Construire</button>
+                <button onclick="fermerModalInfos()" style="background-color: #d9534f;">Fermer</button>
             </div>
         </div>
     </div>
