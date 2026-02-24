@@ -6,20 +6,21 @@
     <link rel="stylesheet" href="monopoly.css">
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
-<body>
+<body>    
     <div id="ecran-login" class="box">
         <h3>Rentrez votre pseudo :</h3>
         <input type="text" id="mon-pseudo" placeholder="Ton pseudo">
         <br>
         <button onclick="creerPartie()">Créer une partie</button>
         <div class="separator">OU</div>
-        <input type="text" id="id-hote-input" placeholder="ID de l'hôte pour rejoindre">
+        <input type="text" id="id-hote-input" autocomplete="off" placeholder="ID de l'hôte pour rejoindre">
         <button onclick="rejoindrePartie()">Rejoindre une partie</button>
+        <div id="msg-erreur-rejoindre" style="color: #ff4d4d; margin-top: 10px; font-weight: bold; display: none; font-size: 14px;"></div>
     </div>
 
     <div id="ecran-lobby" class="box hidden">
         <h2>Salon d'attente</h2>
-        <p>ID de la partie : <strong id="affichage-id">...</strong> 
+        <p>ID de la partie : <br><strong id="affichage-id">...</strong>
            <button id="btn-copier" class="hidden" onclick="copierId()" style="padding: 4px 8px; font-size: 12px; margin-left: 10px; background-color: #4da6ff;">📋 Copier</button>
         </p>
         <p>Joueurs connectés :</p>
@@ -34,13 +35,26 @@
                 <div class="centre-plateau">
                     <h2>Monopoly</h2>
                     <p>Tour de : <strong id="tour-joueur">...</strong></p>
-                    <button id="btn-lancer-des" onclick="actionLancerDes()" disabled>Lancer les dés</button>
+
+                    <div id="zone-anim-des" class="hidden">
+                        <div class="conteneur-des">
+                            <div id="de-1" class="de"><div class="face front">1</div><div class="face back">6</div><div class="face right">3</div><div class="face left">4</div><div class="face top">5</div><div class="face bottom">2</div></div>
+                            <div id="de-2" class="de"><div class="face front">1</div><div class="face back">6</div><div class="face right">3</div><div class="face left">4</div><div class="face top">5</div><div class="face bottom">2</div></div>
+                        </div>
+                    </div>
+
+                    <button id="btn-lancer-des" onclick="lancerDesAnime()" disabled>Attente...</button>
                     </div>
             </div>
 
             <div id="panneau-droit">
                 <h3>Finances</h3>
                 <div id="tableau-scores"></div>
+                <button id="btn-voir-offres" onclick="ouvrirModalListeOffres()" class="hidden">
+                    🎁 Offres en attente
+                    <span id="badge-nb-offres">0</span>
+                </button>
+                <button id="btn-ouvrir-echange" onclick="ouvrirModalEchange()">🤝 Proposer un échange</button>
 
                 <h3 style="margin-top: 15px;">Historique</h3>
                 <div id="historique">
@@ -111,6 +125,58 @@
                 <button id="btn-vendre" onclick="actionVendre()" style="background-color: #ff9900; display: none;">Vendre</button>
                 <button id="btn-construire" onclick="actionConstruire()" style="background-color: #28a745; display: none;">Construire</button>
                 <button onclick="fermerModalInfos()" style="background-color: #d9534f;">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-creation-echange" class="hidden">
+        <div class="modal-content card-terrain" style="max-width: 600px; width: 90%;">
+            <h3 style="border-bottom: 2px solid #9933cc; color: white;">🤝 Proposer un échange</h3>
+            
+            <p style="color: white;">Avec qui ? <select id="echange-cible" onchange="majInterfaceEchange()" style="padding: 5px; background: #333; color: white; border: 1px solid #555;"></select></p>
+
+            <div style="display: flex; gap: 20px; margin-top: 15px; text-align: left; color: white;">
+                <div style="flex: 1; border: 1px solid #555; padding: 10px; border-radius: 5px; background: rgba(0,0,0,0.3);">
+                    <h4 style="color: #4da6ff; margin-top: 0;">Je donne :</h4>
+                    <label>💰 Argent : <input type="number" id="echange-donne-argent" min="0" value="0" style="width: 70px;"></label><br><br>
+                    <label>🃏 Cartes Prison : <input type="number" id="echange-donne-cartes" min="0" value="0" style="width: 50px;"></label><br><br>
+                    <p style="margin-bottom: 5px; font-weight: bold; font-size: 14px;">🏠 Terrains :</p>
+                    <div id="echange-donne-terrains" style="max-height: 120px; overflow-y: auto; font-size: 13px;"></div>
+                </div>
+                
+                <div style="flex: 1; border: 1px solid #555; padding: 10px; border-radius: 5px; background: rgba(0,0,0,0.3);">
+                    <h4 style="color: #ff4d4d; margin-top: 0;">Je demande :</h4>
+                    <label>💰 Argent : <input type="number" id="echange-demande-argent" min="0" value="0" style="width: 70px;"></label><br><br>
+                    <label>🃏 Cartes Prison : <input type="number" id="echange-demande-cartes" min="0" value="0" style="width: 50px;"></label><br><br>
+                    <p style="margin-bottom: 5px; font-weight: bold; font-size: 14px;">🏠 Terrains :</p>
+                    <div id="echange-demande-terrains" style="max-height: 120px; overflow-y: auto; font-size: 13px;"></div>
+                </div>
+            </div>
+            
+            <div class="modal-buttons" style="margin-top: 20px;">
+                <button onclick="actionEnvoyerEchange()" style="background-color: #28a745;">Envoyer l'offre</button>
+                <button onclick="document.getElementById('modal-creation-echange').classList.add('hidden')" style="background-color: #d9534f;">Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-reponse-echange" class="hidden">
+        <div class="modal-content card-terrain" style="max-width: 500px; width: 90%;">
+            <h3 style="border-bottom: 2px solid #9933cc; color: white;">🤝 Proposition d'échange !</h3>
+            <p id="texte-reponse-echange" style="line-height: 1.5; font-size: 15px; text-align: left; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 5px; border: 1px solid #444; color: white;"></p>
+            <div class="modal-buttons" style="margin-top: 20px;">
+                <button onclick="actionRepondreEchange(true)" style="background-color: #28a745;">Accepter</button>
+                <button onclick="actionRepondreEchange(false)" style="background-color: #d9534f;">Refuser</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-liste-offres" class="hidden modal-overlay">
+        <div class="modal-content card-terrain" style="max-width: 500px; width: 90%;">
+            <h3 style="border-bottom: 2px solid #ff9900; color: white; text-align: center;">🎁 Offres reçues</h3>
+            <div id="conteneur-liste-offres" style="max-height: 300px; overflow-y: auto; margin-top: 15px; display: flex; flex-direction: column; gap: 10px;"></div>
+            <div class="modal-buttons" style="margin-top: 20px; justify-content: center;">
+                <button onclick="fermerModalListeOffres()" style="background-color: #d9534f;">Fermer</button>
             </div>
         </div>
     </div>

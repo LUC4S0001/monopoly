@@ -99,11 +99,25 @@ peer.on('connection', (conn) => {
     });
 });
 
+peer.on('error', (err) => {
+    console.error("Erreur PeerJS:", err);
+    if (err.type === 'peer-unavailable') {
+        const msgErreur = document.getElementById('msg-erreur-rejoindre');
+        if (msgErreur) {
+            msgErreur.innerText = "❌ Code invalide ou partie introuvable.";
+            msgErreur.style.display = 'block';
+            msgErreur.classList.remove('bounce');
+            void msgErreur.offsetWidth;
+            msgErreur.classList.add('bounce');
+        }
+    }
+});
+
 function creerPartie() {
     monPseudo = document.getElementById('mon-pseudo').value || "Hôte";
     estHote = true;
     
-    etatJeu.joueurs.push({ id: monId, pseudo: monPseudo, position: 0, couleur: 0, argent: 1500 });
+    etatJeu.joueurs.push({ id: monId, pseudo: monPseudo, position: 0, couleur: 0, argent: 1500, compteurDoubles: 0 });
     
     passerAuLobby();
     document.getElementById('affichage-id').innerText = monId || "Génération en cours...";
@@ -118,6 +132,11 @@ function creerPartie() {
 }
 
 function rejoindrePartie() {
+    const msgErreur = document.getElementById('msg-erreur-rejoindre');
+    if (msgErreur) {
+        msgErreur.style.display = 'none';
+        msgErreur.innerText = '';
+    }
     monPseudo = document.getElementById('mon-pseudo').value || "Invité";
     const idHote = document.getElementById('id-hote-input').value;
     if (!idHote) return alert("Il faut l'ID de l'hôte !");
@@ -152,9 +171,12 @@ function traiterMessageRecu(data, connExpediteur) {
             alert(data.message);
             if (maConnexionHost) maConnexionHost.close();
         }
-        // --- NOUVEAU : Réception de l'offre d'achat ---
         else if (data.type === 'PROPOSER_ACHAT') {
             afficherModalAchat(data.idCase, data.terrain);
+        }
+        else if (data.type === 'PROPOSER_ECHANGE') {
+            listeOffresRecues.push(data);
+            majBoutonOffres();
         }
     }
 }
@@ -166,9 +188,6 @@ function calculerLoyer(idCase, idProprio, scoreDes) {
     const terrain = INFOS_TERRAINS[idCase];
     const propriete = etatJeu.proprietes[idCase];
     const famille = terrain.famille;
-    
-    // On compte combien de terrains de cette famille le propriétaire possède, 
-    // et combien de terrains composent cette famille au total.
     let terrainsPossedes = 0;
     let tailleFamille = 0;
 
@@ -181,25 +200,21 @@ function calculerLoyer(idCase, idProprio, scoreDes) {
         }
     }
 
-    // Règle Famille 9 : Les "Mobiles" (ex: Gares)
     if (famille === 9) { 
         return terrain.loyers[terrainsPossedes - 1];
-    } 
-    // Règle Famille 10 : TotalEnergies / The Financier (Compagnies)
+    }
     else if (famille === 10) { 
         if (terrainsPossedes === 1) return scoreDes * 4;
         if (terrainsPossedes === 2) return scoreDes * 10;
-    } 
-    // Règle Classique : Familles 1 à 8
+    }
     else { 
         if (propriete.maisons > 0) {
             return terrain.loyers[propriete.maisons]; 
         } else {
-            // Si le terrain est nu mais que la famille est complète : Loyer doublé !
             if (terrainsPossedes === tailleFamille) {
                 return terrain.loyers[0] * 2; 
             } else {
-                return terrain.loyers[0]; // Loyer nu standard
+                return terrain.loyers[0];
             }
         }
     }
@@ -208,7 +223,7 @@ function calculerLoyer(idCase, idProprio, scoreDes) {
 
 function traiterLogiqueJeu(data, idJoueur, connExpediteur) {
     if (data.type === 'REJOINDRE') {
-        etatJeu.joueurs.push({ id: idJoueur, pseudo: data.pseudo, position: 0, couleur: etatJeu.joueurs.length, argent: 1500 });
+        etatJeu.joueurs.push({ id: idJoueur, pseudo: data.pseudo, position: 0, couleur: etatJeu.joueurs.length, argent: 1500, compteurDoubles: 0 });
         diffuserEtat();
     }
     else if (data.type === 'LANCER_PARTIE') {
@@ -216,37 +231,53 @@ function traiterLogiqueJeu(data, idJoueur, connExpediteur) {
         etatJeu.tourActuel = 0; 
         diffuserEtat();
     }
-    else if (data.type === 'LANCER_DES') {
+    else if (data.type === 'TRAITER_LANCER_DES') {
         const indexJoueur = etatJeu.joueurs.findIndex(j => j.id === idJoueur);
         if (indexJoueur !== etatJeu.tourActuel) return; 
+        const j = etatJeu.joueurs[indexJoueur];
+        
+        const d1 = data.d1;
+        const d2 = data.d2;
+        const score = d1 + d2;
+        let estUnDouble = (d1 === d2);
+        let rejoueImmediatement = false;
+        let tourTermine = false;
 
-        const anciennePosition = etatJeu.joueurs[indexJoueur].position;
-        const score = Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1;
-        const nouvellePosition = (anciennePosition + score) % 40;
-        
-        etatJeu.joueurs[indexJoueur].position = nouvellePosition;
-        
-        // --- GESTION DE LA CASE DÉPART (Déplacement aux dés) ---
-        if (anciennePosition + score === 40) {
-            etatJeu.joueurs[indexJoueur].argent += 400;
-            etatJeu.log.push(`🎯 BINGO ! ${etatJeu.joueurs[indexJoueur].pseudo} tombe PILE sur le Départ et gagne 400 € !`);
-        } else if (anciennePosition + score > 40) {
-            etatJeu.joueurs[indexJoueur].argent += 200;
-            etatJeu.log.push(`🏁 ${etatJeu.joueurs[indexJoueur].pseudo} passe le Départ et reçoit 200 €.`);
+        etatJeu.derniersDes = [d1, d2];
+        etatJeu.log.push(`🎲 ${j.pseudo} a lancé les dés : ${d1} et ${d2} (Total : ${score})`);
+
+        if (estUnDouble) {
+            j.compteurDoubles++;
+            etatJeu.log.push(`✨ C'est un double ! (${j.compteurDoubles}/3)`);
+            
+            if (j.compteurDoubles === 3) {
+                etatJeu.log.push(`🚨 Troisième double d'affilée ! ${j.pseudo} part directement en prison !`);
+                j.position = 10;
+                j.enPrison = true;
+                j.toursEnPrison = 0;
+                j.compteurDoubles = 0; 
+                tourTermine = true;
+            } else {
+                rejoueImmediatement = true;
+                tourTermine = gererDeplacementApresDes(indexJoueur, idJoueur, score);
+            }
+        } else {
+            j.compteurDoubles = 0;
+            tourTermine = gererDeplacementApresDes(indexJoueur, idJoueur, score);
         }
-
-        // On confie la suite à notre fonction intelligente
-        const tourTermine = traiterArriveeCase(indexJoueur, idJoueur, nouvellePosition, score);
 
         if (tourTermine) {
-            // On vérifie tous les joueurs, pas seulement le joueur actuel !
-            if (etatJeu.joueurs.some(j => j.argent < 0)) {
+            if (etatJeu.joueurs.some(joueur => joueur.argent < 0)) {
                 etatJeu.attenteRemboursement = true;
-            } else {
+            } else if (!rejoueImmediatement || j.enPrison) {
                 etatJeu.tourActuel = (etatJeu.tourActuel + 1) % etatJeu.joueurs.length;
             }
-            diffuserEtat();
+        } else {
+            etatJeu.attenteAchat = true; 
+            etatJeu.joueurDoitRejouer = rejoueImmediatement;
         }
+
+        diffuserEtat();
     }
     else if (data.type === 'REPONSE_ACHAT') {
         const indexJoueur = etatJeu.joueurs.findIndex(j => j.id === idJoueur);
@@ -255,10 +286,21 @@ function traiterLogiqueJeu(data, idJoueur, connExpediteur) {
         if (data.achat && etatJeu.joueurs[indexJoueur].argent >= terrain.prix) {
             etatJeu.joueurs[indexJoueur].argent -= terrain.prix; 
             etatJeu.proprietes[data.idCase] = { proprietaire: idJoueur, maisons: 0 }; 
-            etatJeu.log.push(`${etatJeu.joueurs[indexJoueur].pseudo} a acheté ${terrain.nom} pour ${terrain.prix} €.`);
-        } 
+            etatJeu.log.push(`🏠 ${etatJeu.joueurs[indexJoueur].pseudo} a acheté ${terrain.nom} pour ${terrain.prix} €.`);
+        } else if (!data.achat) {
+            etatJeu.log.push(`🙅‍♂️ ${etatJeu.joueurs[indexJoueur].pseudo} a refusé d'acheter ${terrain.nom}.`);
+        }
 
-        etatJeu.tourActuel = (etatJeu.tourActuel + 1) % etatJeu.joueurs.length;
+        etatJeu.attenteAchat = false;
+
+        if (etatJeu.joueurs.some(joueur => joueur.argent < 0)) {
+            etatJeu.attenteRemboursement = true;
+        } else if (etatJeu.joueurDoitRejouer) {
+            etatJeu.joueurDoitRejouer = false;
+        } else {
+            etatJeu.tourActuel = (etatJeu.tourActuel + 1) % etatJeu.joueurs.length;
+        }
+        
         diffuserEtat();
     }
     else if (data.type === 'ACTION_PRISON') {
@@ -343,20 +385,42 @@ function traiterLogiqueJeu(data, idJoueur, connExpediteur) {
         const terrain = INFOS_TERRAINS[data.idCase];
 
         if (propriete && propriete.proprietaire === idJoueur) {
+            let gain = 0;
+            
+            // Calcul du gain
             if (propriete.maisons > 0) {
-                const gain = Math.floor(getPrixMaison(terrain.famille) / 2);
-                joueur.argent += gain;
+                gain = Math.floor(getPrixMaison(terrain.famille) / 2);
                 propriete.maisons--;
                 let typeBatiment = propriete.maisons === 4 ? "un hôtel 🏨" : "une maison 🏠";
                 etatJeu.log.push(`🔨 ${joueur.pseudo} a vendu ${typeBatiment} sur ${terrain.nom} pour ${gain} €.`);
             } else {
-                const gain = Math.floor(terrain.prix / 2);
-                joueur.argent += gain;
-                delete etatJeu.proprietes[data.idCase]; // Le terrain redevient libre !
+                gain = Math.floor(terrain.prix / 2);
+                delete etatJeu.proprietes[data.idCase]; 
                 etatJeu.log.push(`📜 ${joueur.pseudo} a revendu ${terrain.nom} à la banque pour ${gain} €.`);
             }
 
-            // Si le joueur était bloqué pour dette et qu'il repasse dans le vert : le tour est débloqué !
+            // --- REMBOURSEMENT AUTOMATIQUE DU CRÉANCIER ---
+            const ancienneDette = joueur.argent; 
+            joueur.argent += gain; // On ajoute le gain au joueur (ce qui fait remonter son solde vers 0)
+
+            if (ancienneDette < 0) {
+                // Si l'argent repasse en positif, on a remboursé toute la dette (Math.abs(ancienneDette)).
+                // S'il reste négatif, on a remboursé le 'gain' en entier.
+                let montantRembourse = joueur.argent >= 0 ? Math.abs(ancienneDette) : gain;
+
+                // On verse l'argent au bon créancier
+                if (joueur.creancier === 'benoit') {
+                    etatJeu.cagnotteDettes = (etatJeu.cagnotteDettes || 0) + montantRembourse;
+                } else if (joueur.creancier) {
+                    const receveur = etatJeu.joueurs.find(j => j.id === joueur.creancier);
+                    if (receveur) receveur.argent += montantRembourse;
+                }
+                
+                etatJeu.log.push(`💸 Les ${montantRembourse} € de la vente partent directement rembourser la dette !`);
+                if (joueur.argent >= 0) {
+                    joueur.creancier = null; 
+                }
+            }
             if (etatJeu.attenteRemboursement && !etatJeu.joueurs.some(j => j.argent < 0)) {
                 etatJeu.attenteRemboursement = false;
                 etatJeu.tourActuel = (etatJeu.tourActuel + 1) % etatJeu.joueurs.length;
@@ -365,6 +429,66 @@ function traiterLogiqueJeu(data, idJoueur, connExpediteur) {
             diffuserEtat();
         }
     }
+    else if (data.type === 'PROPOSER_ECHANGE') {
+        if (data.cible === monId) {
+            listeOffresRecues.push(data);
+            majBoutonOffres();
+            etatJeu.log.push(`🎁 ${etatJeu.joueurs.find(j => j.id === monId).pseudo} a reçu une offre d'échange.`);
+            diffuserEtat();
+        } else {
+            const connCible = connexionsClients.find(c => c.peer === data.cible);
+            if (connCible) {
+                connCible.send(data);
+                const initiateur = etatJeu.joueurs.find(j => j.id === data.initiateur);
+                const cible = etatJeu.joueurs.find(j => j.id === data.cible);
+                if (initiateur && cible) {
+                    etatJeu.log.push(`🔄 ${initiateur.pseudo} a envoyé une offre d'échange à ${cible.pseudo}...`);
+                    diffuserEtat();
+                }
+            }
+        }
+    }
+    else if (data.type === 'REPONSE_ECHANGE') {
+        const donneur = etatJeu.joueurs.find(j => j.id === data.initiateur);
+        const receveur = etatJeu.joueurs.find(j => j.id === idJoueur);
+
+        if (data.accepte) {
+            if (donneur.argent < data.offre.argent || receveur.argent < data.demande.argent) {
+                etatJeu.log.push(`❌ L'échange entre ${donneur.pseudo} et ${receveur.pseudo} a échoué (fonds insuffisants entre temps).`);
+                diffuserEtat();
+                return;
+            }
+            donneur.argent = donneur.argent - data.offre.argent + data.demande.argent;
+            receveur.argent = receveur.argent + data.offre.argent - data.demande.argent;
+            donneur.carteSortiePrison = Math.max(0, (donneur.carteSortiePrison || 0) - data.offre.cartes + data.demande.cartes);
+            receveur.carteSortiePrison = Math.max(0, (receveur.carteSortiePrison || 0) + data.offre.cartes - data.demande.cartes);
+            data.offre.terrains.forEach(idCase => etatJeu.proprietes[idCase].proprietaire = receveur.id);
+            data.demande.terrains.forEach(idCase => etatJeu.proprietes[idCase].proprietaire = donneur.id);
+
+            etatJeu.log.push(`🤝 Accord conclu ! Échange validé entre ${donneur.pseudo} et ${receveur.pseudo}.`);
+
+            if (etatJeu.attenteRemboursement && !etatJeu.joueurs.some(j => j.argent < 0)) {
+                etatJeu.attenteRemboursement = false;
+                etatJeu.tourActuel = (etatJeu.tourActuel + 1) % etatJeu.joueurs.length;
+                etatJeu.log.push(`✅ Dette épongée grâce à l'échange ! Le tour passe.`);
+            }
+        } else {
+            etatJeu.log.push(`❌ ${receveur.pseudo} a refusé l'échange de ${donneur.pseudo}.`);
+        }
+        diffuserEtat();
+    }
+}
+
+function gererDeplacementApresDes(indexJoueur, idJoueur, score) {
+    const j = etatJeu.joueurs[indexJoueur];
+    const anciennePosition = j.position;
+    j.position = (anciennePosition + score) % 40;
+    if (anciennePosition + score === 40) {
+        j.argent += 400; etatJeu.log.push(`🎯 BINGO Départ : +400 € !`);
+    } else if (anciennePosition + score > 40) {
+        j.argent += 200; etatJeu.log.push(`🏁 Passage Départ : +200 €.`);
+    }
+    return traiterArriveeCase(indexJoueur, idJoueur, j.position, score);
 }
 
 function diffuserEtat() {
@@ -393,29 +517,38 @@ function appliquerEtatJeu() {
     const cEstAmoi = (joueurActuel.id === monId);
     let btnText = "Attente...";
     let btnDisabled = true;
-
-    // On cherche si N'IMPORTE QUEL joueur dans la partie est dans le rouge
     const joueurEndette = etatJeu.joueurs.find(j => j.argent < 0);
 
-    if (joueurEndette) {
-        btnDisabled = true; // On bloque tout le monde !
-        if (joueurEndette.id === monId) {
-            btnText = "Remboursez vos dettes !";
-        } else {
-            btnText = `Attente de ${joueurEndette.pseudo}...`;
-        }
+    if (animationDesEnCours) {
+         btnText = "Lancement en cours..."; btnDisabled = true;
+    } else if (etatJeu.attenteAchat) {
+         btnText = "Attente d'une décision..."; btnDisabled = true;
+    } else if (joueurEndette) {
+        btnDisabled = true;
+        btnText = (joueurEndette.id === monId) ? "Remboursez vos dettes !" : `Attente de ${joueurEndette.pseudo}...`;
     } else if (cEstAmoi) {
         if (joueurActuel.enPrison) {
-            btnText = "Enfermé...";
-            btnDisabled = true;
+            btnText = "Enfermé..."; btnDisabled = true;
         } else {
-            btnText = "À TOI DE JOUER !";
+            if (joueurActuel.compteurDoubles > 0) {
+                 btnText = "🎲 REJOUER ! (Double)";
+            } else {
+                 btnText = "🎲 LANCER LES DÉS";
+            }
             btnDisabled = false;
         }
     }
 
     document.getElementById('btn-lancer-des').disabled = btnDisabled;
     document.getElementById('btn-lancer-des').innerText = btnText;
+
+    if (etatJeu.derniersDes) {
+        document.getElementById('zone-anim-des').classList.remove('hidden');
+        if (!animationDesEnCours) {
+            document.getElementById('de-1').className = 'de show-' + etatJeu.derniersDes[0];
+            document.getElementById('de-2').className = 'de show-' + etatJeu.derniersDes[1];
+        }
+    }
 
     if (cEstAmoi && joueurActuel.enPrison) {
         afficherModalPrison(joueurActuel);
@@ -870,24 +1003,33 @@ function traiterArriveeCase(indexJoueur, idJoueur, position, scoreDes) {
 
 function gererPaiementBanque(indexJoueur, montant) {
     let joueur = etatJeu.joueurs[indexJoueur];
-    joueur.argent -= montant;
-    etatJeu.cagnotteDettes = (etatJeu.cagnotteDettes || 0) + montant;
+    let argentDispo = Math.max(0, joueur.argent); // Ce qu'il peut donner tout de suite
     
+    joueur.argent -= montant; // Le solde descend (passe en négatif si pas assez)
+
     if (joueur.argent < 0) {
-        etatJeu.log.push(`⚠️ ALERTE : ${joueur.pseudo} est dans le rouge (${joueur.argent} €) !`);
+        etatJeu.cagnotteDettes = (etatJeu.cagnotteDettes || 0) + argentDispo;
+        joueur.creancier = 'benoit'; // NOUVEAU : On mémorise qu'il doit le reste à la cagnotte
+        etatJeu.log.push(`⚠️ ${joueur.pseudo} est dans le rouge ! Il donne ses ${argentDispo} € aux Dettes de Benoit et doit encore ${Math.abs(joueur.argent)} €.`);
+    } else {
+        etatJeu.cagnotteDettes = (etatJeu.cagnotteDettes || 0) + montant;
     }
 }
 
 function gererPaiementJoueur(indexPayeur, indexReceveur, montant, motif) {
     let payeur = etatJeu.joueurs[indexPayeur];
     let receveur = etatJeu.joueurs[indexReceveur];
+    let argentDispo = Math.max(0, payeur.argent); // L'argent dispo avant le paiement
     
-    payeur.argent -= montant;
-    receveur.argent += montant;
-    etatJeu.log.push(`${payeur.pseudo} paie ${montant} € à ${receveur.pseudo} ${motif}.`);
-    
+    payeur.argent -= montant; // On applique la dette (passe en négatif si pas assez)
+
     if (payeur.argent < 0) {
-        etatJeu.log.push(`⚠️ ALERTE : ${payeur.pseudo} est dans le rouge (${payeur.argent} €) !`);
+        receveur.argent += argentDispo; // Le receveur ne prend QUE ce qui est dispo !
+        payeur.creancier = receveur.id; // NOUVEAU : On mémorise l'ID de celui à qui il doit l'argent
+        etatJeu.log.push(`⚠️ ${payeur.pseudo} est dans le rouge ! Il donne ${argentDispo} € à ${receveur.pseudo} et lui doit encore ${Math.abs(payeur.argent)} € ${motif}.`);
+    } else {
+        receveur.argent += montant;
+        etatJeu.log.push(`${payeur.pseudo} paie ${montant} € à ${receveur.pseudo} ${motif}.`);
     }
 }
 
@@ -984,16 +1126,21 @@ function clicSurCase(idCase) {
         }
     }
 
-    // 3. Gestion de l'apparition du bouton "Construire"
+    // ========================================================
+    // 3. GESTION DU BOUTON "CONSTRUIRE"
+    // ========================================================
     const btnConstruire = document.getElementById('btn-construire');
-    btnConstruire.style.display = 'none'; // Caché par défaut
+    btnConstruire.style.display = 'none'; // Caché par défaut (pour les autres joueurs)
 
     const indexJoueur = etatJeu.joueurs.findIndex(j => j.id === monId);
     const propriete = etatJeu.proprietes[idCase];
+    const cEstMonTour = (jeuEnCours && indexJoueur === etatJeu.tourActuel);
 
-    // Si c'est à moi de jouer, que je possède le terrain, et qu'il accepte les maisons (famille <= 8)
-    if (jeuEnCours && indexJoueur === etatJeu.tourActuel && propriete && propriete.proprietaire === monId && terrain.famille <= 8) {
-        
+    // Si je possède le terrain et qu'il accepte les maisons (famille <= 8)
+    if (propriete && propriete.proprietaire === monId && terrain.famille <= 8) {
+        btnConstruire.style.display = 'inline-block'; // On l'affiche car je suis le proprio !
+        btnConstruire.disabled = true; // Grisé par défaut
+
         // Vérification de la famille complète
         let possedeTouteFamille = true;
         let terrainsFamille = [];
@@ -1006,32 +1153,44 @@ function clicSurCase(idCase) {
             }
         }
 
-        // Si j'ai la famille et que ce n'est pas déjà un hôtel (5)
-        if (possedeTouteFamille && propriete.maisons < 5) {
-            
-            // Vérification de la règle d'uniformité
+        // On vérifie pourquoi on doit le griser, et on change le texte !
+        if (!cEstMonTour) {
+            btnConstruire.innerText = "Attendez votre tour";
+        } else if (!possedeTouteFamille) {
+            btnConstruire.innerText = "Famille incomplète";
+        } else if (propriete.maisons >= 5) {
+            btnConstruire.innerText = "Niveau Max Atteint";
+        } else {
+            // Règle d'uniformité
             let peutConstruireUniformement = true;
             for (let prop of terrainsFamille) {
                 if (prop && prop.maisons < propriete.maisons) {
                     peutConstruireUniformement = false;
                 }
             }
-            
-            if (peutConstruireUniformement) {
-                btnConstruire.style.display = 'inline-block'; // On affiche le bouton !
+            if (!peutConstruireUniformement) {
+                btnConstruire.innerText = "Construisez ailleurs d'abord";
+            } else {
+                // Tout est bon, on l'active !
+                btnConstruire.disabled = false; 
+                btnConstruire.innerText = "Construire";
             }
         }
     }
 
+    // ========================================================
+    // 4. GESTION DU BOUTON "VENDRE"
+    // ========================================================
     const btnVendre = document.getElementById('btn-vendre');
-    btnVendre.style.display = 'none';
+    btnVendre.style.display = 'none'; // Caché par défaut (pour les autres)
 
     if (propriete && propriete.proprietaire === monId) {
-        btnVendre.style.display = 'inline-block';
-        btnVendre.disabled = false; // Réinitialisation par défaut
+        btnVendre.style.display = 'inline-block'; // On l'affiche car je suis le proprio !
+        btnVendre.disabled = true; // Grisé par défaut
 
         if (propriete.maisons > 0) {
-            // Règle d'uniformité inversée : on ne peut vendre une maison que si aucune autre n'en a plus !
+            // VENTE DE BÂTIMENT
+            const gain = Math.floor(getPrixMaison(terrain.famille) / 2);
             let peutVendreUniformement = true;
             for (const key in INFOS_TERRAINS) {
                 if (INFOS_TERRAINS[key].famille === terrain.famille && etatJeu.proprietes[key]) {
@@ -1039,15 +1198,15 @@ function clicSurCase(idCase) {
                 }
             }
 
-            if (peutVendreUniformement) {
-                const gain = Math.floor(getPrixMaison(terrain.famille) / 2);
-                btnVendre.innerText = `Vendre 1 Bâtiment (+${gain} €)`;
+            if (!cEstMonTour) {
+                btnVendre.innerText = "Attendez votre tour";
+            } else if (!peutVendreUniformement) {
+                btnVendre.innerText = "Vente Bâtiment impossible (Uniformité)";
             } else {
-                btnVendre.innerText = `Vente Bâtiment impossible (Uniformité)`;
-                btnVendre.disabled = true;
+                btnVendre.innerText = `Vendre 1 Bâtiment (+${gain} €)`;
+                btnVendre.disabled = false;
             }
         } else {
-            // Vente du terrain nu : seulement si AUCUN terrain de la famille n'a de maisons
             let aDesMaisonsDansFamille = false;
             for (const key in INFOS_TERRAINS) {
                 if (INFOS_TERRAINS[key].famille === terrain.famille && etatJeu.proprietes[key] && etatJeu.proprietes[key].maisons > 0) {
@@ -1055,16 +1214,20 @@ function clicSurCase(idCase) {
                 }
             }
 
-            if (aDesMaisonsDansFamille) {
-                btnVendre.innerText = `Vendez les maisons d'abord`;
-                btnVendre.disabled = true;
+            const gain = Math.floor(terrain.prix / 2);
+            
+            if (!cEstMonTour) {
+                btnVendre.innerText = "Attendez votre tour";
+            } else if (aDesMaisonsDansFamille) {
+                btnVendre.innerText = "Vendez les maisons d'abord";
             } else {
-                const gain = Math.floor(terrain.prix / 2);
                 btnVendre.innerText = `Revendre Terrain (+${gain} €)`;
+                btnVendre.disabled = false;
             }
         }
     }
 
+    // 5. On mémorise la case cliquée et on affiche la fenêtre
     caseConstructionEnCours = idCase;
     document.getElementById('modal-infos-terrain').classList.remove('hidden');
 }
@@ -1081,6 +1244,246 @@ function actionConstruire() {
 function actionVendre() {
     envoyerAuServeur({ type: 'VENDRE', idCase: caseConstructionEnCours });
     fermerModalInfos();
+}
+
+// ==========================================
+// SYSTÈME D'ÉCHANGE ENTRE JOUEURS
+// ==========================================
+let listeOffresRecues = [];
+
+function ouvrirModalEchange() {
+    if (!jeuEnCours || etatJeu.joueurs.length < 2) return alert("Pas assez de joueurs pour échanger !");
+    
+    const select = document.getElementById('echange-cible');
+    select.innerHTML = '';
+    etatJeu.joueurs.forEach(j => {
+        if (j.id !== monId) {
+            let opt = document.createElement('option');
+            opt.value = j.id;
+            opt.innerText = j.pseudo;
+            select.appendChild(opt);
+        }
+    });
+    
+    majInterfaceEchange();
+    document.getElementById('modal-creation-echange').classList.remove('hidden');
+}
+
+function majInterfaceEchange() {
+    const targetId = document.getElementById('echange-cible').value;
+    const moi = etatJeu.joueurs.find(j => j.id === monId);
+    const cible = etatJeu.joueurs.find(j => j.id === targetId);
+    
+    document.getElementById('echange-donne-argent').max = Math.max(0, moi.argent);
+    document.getElementById('echange-donne-cartes').max = moi.carteSortiePrison || 0;
+    document.getElementById('echange-demande-argent').max = Math.max(0, cible.argent);
+    document.getElementById('echange-demande-cartes').max = cible.carteSortiePrison || 0;
+
+    const divMoi = document.getElementById('echange-donne-terrains');
+    const divLui = document.getElementById('echange-demande-terrains');
+    divMoi.innerHTML = ''; divLui.innerHTML = '';
+
+    for (let idCase in etatJeu.proprietes) {
+        let prop = etatJeu.proprietes[idCase];
+        
+        let nomPropre = INFOS_TERRAINS[idCase].nom.replace(/<br\s*[\/]?>|\n/gi, ' ').replace(/\s+/g, ' ').trim();
+        
+        if (prop.proprietaire === monId) {
+            divMoi.innerHTML += `<label style="display: flex; align-items: center; margin-bottom: 6px;"><input type="checkbox" class="chk-donne-terrain" value="${idCase}" style="margin-right: 8px;"> <span>${nomPropre}</span></label>`;
+        } else if (prop.proprietaire === targetId) {
+            divLui.innerHTML += `<label style="display: flex; align-items: center; margin-bottom: 6px;"><input type="checkbox" class="chk-demande-terrain" value="${idCase}" style="margin-right: 8px;"> <span>${nomPropre}</span></label>`;
+        }
+    }
+}
+
+function actionEnvoyerEchange() {
+    const targetId = document.getElementById('echange-cible').value;
+    
+    const offreArgent = parseInt(document.getElementById('echange-donne-argent').value) || 0;
+    const offreCartes = parseInt(document.getElementById('echange-donne-cartes').value) || 0;
+    const demandeArgent = parseInt(document.getElementById('echange-demande-argent').value) || 0;
+    const demandeCartes = parseInt(document.getElementById('echange-demande-cartes').value) || 0;
+    
+    // Récolte des terrains cochés
+    const offreTerrains = Array.from(document.querySelectorAll('.chk-donne-terrain:checked')).map(cb => parseInt(cb.value));
+    const demandeTerrains = Array.from(document.querySelectorAll('.chk-demande-terrain:checked')).map(cb => parseInt(cb.value));
+
+    // RÈGLE : Les deux joueurs doivent donner AU MOINS une chose !
+    const totalOffre = offreArgent + offreCartes + offreTerrains.length;
+    const totalDemande = demandeArgent + demandeCartes + demandeTerrains.length;
+
+    if (totalOffre === 0 || totalDemande === 0) {
+        return alert("❌ Échange invalide : Chaque joueur doit proposer au moins 1 élément (argent, carte ou terrain) !");
+    }
+
+    const donneesEchange = {
+        type: 'PROPOSER_ECHANGE',
+        initiateur: monId,
+        cible: targetId,
+        offre: { argent: offreArgent, cartes: offreCartes, terrains: offreTerrains },
+        demande: { argent: demandeArgent, cartes: demandeCartes, terrains: demandeTerrains }
+    };
+
+    envoyerAuServeur(donneesEchange);
+    document.getElementById('modal-creation-echange').classList.add('hidden');
+}
+
+// ==========================================
+// GESTION DE LA LISTE DES OFFRES REÇUES
+// ==========================================
+
+// Variable temporaire pour l'offre qu'on est en train de regarder
+let offreEnCoursDeConsultation = null;
+let indexOffreEnCours = -1;
+
+// 1. Met à jour le bouton orange "Offres en attente"
+function majBoutonOffres() {
+    const btn = document.getElementById('btn-voir-offres');
+    const badge = document.getElementById('badge-nb-offres');
+    const nbOffres = listeOffresRecues.length;
+
+    if (nbOffres > 0) {
+        btn.classList.remove('hidden'); // Afficher le bouton
+        badge.innerText = nbOffres; // Mettre à jour le nombre
+        // Petite animation "bounce" pour attirer l'œil
+        btn.classList.add('bounce');
+        setTimeout(() => { btn.classList.remove('bounce'); }, 1000);
+    } else {
+        btn.classList.add('hidden'); // Cacher le bouton s'il n'y a pas d'offres
+    }
+}
+
+// 2. Ouvre la fenêtre avec la liste des offres
+function ouvrirModalListeOffres() {
+    if (listeOffresRecues.length === 0) return;
+
+    const conteneur = document.getElementById('conteneur-liste-offres');
+    conteneur.innerHTML = ''; // On vide la liste
+
+    // On crée une ligne pour chaque offre
+    listeOffresRecues.forEach((offreData, index) => {
+        const initiateur = etatJeu.joueurs.find(j => j.id === offreData.initiateur);
+        const divOffre = document.createElement('div');
+        divOffre.style.background = 'rgba(255, 255, 255, 0.1)';
+        divOffre.style.padding = '10px';
+        divOffre.style.borderRadius = '5px';
+        divOffre.style.display = 'flex';
+        divOffre.style.justifyContent = 'space-between';
+        divOffre.style.alignItems = 'center';
+
+        divOffre.innerHTML = `
+            <span style="color: white;">Offre de <strong>${initiateur ? initiateur.pseudo : 'Joueur inconnu'}</strong></span>
+            <button onclick="afficherDetailsOffre(${index})" style="background-color: #4da6ff; padding: 5px 10px; font-size: 12px;">Voir détails</button>
+        `;
+        conteneur.appendChild(divOffre);
+    });
+
+    document.getElementById('modal-liste-offres').classList.remove('hidden');
+}
+
+function fermerModalListeOffres() {
+    document.getElementById('modal-liste-offres').classList.add('hidden');
+}
+
+function afficherDetailsOffre(index) {
+    indexOffreEnCours = index;
+    offreEnCoursDeConsultation = listeOffresRecues[index];
+    const data = offreEnCoursDeConsultation;
+    const initiateur = etatJeu.joueurs.find(j => j.id === data.initiateur);
+    
+    // Construction du texte de l'offre
+    let texteOffre = `<strong>${initiateur ? initiateur.pseudo : 'Joueur inconnu'} vous propose :</strong><br>`;
+    if (data.offre.argent > 0) texteOffre += `💰 ${data.offre.argent} €<br>`;
+    if (data.offre.cartes > 0) texteOffre += `🃏 ${data.offre.cartes} Carte(s) Prison<br>`;
+    data.offre.terrains.forEach(id => {
+        const terrain = INFOS_TERRAINS[id];
+        if(terrain) {
+            let nomPropre = terrain.nom.replace(/<br\s*[\/]?>/gi, ' ');
+            texteOffre += `🏠 ${nomPropre}<br>`;
+        }
+    });
+
+    texteOffre += `<br><strong style="color:#ff4d4d;">En échange de vos :</strong><br>`;
+    if (data.demande.argent > 0) texteOffre += `💰 ${data.demande.argent} €<br>`;
+    if (data.demande.cartes > 0) texteOffre += `🃏 ${data.demande.cartes} Carte(s) Prison<br>`;
+    data.demande.terrains.forEach(id => {
+        const terrain = INFOS_TERRAINS[id];
+        if(terrain) {
+            let nomPropre = terrain.nom.replace(/<br\s*[\/]?>/gi, ' ');
+            texteOffre += `🏠 ${nomPropre}<br>`;
+        }
+    });
+
+    document.getElementById('texte-reponse-echange').innerHTML = texteOffre;
+    
+    // On ferme la liste et on ouvre la fenêtre de détail
+    fermerModalListeOffres();
+    document.getElementById('modal-reponse-echange').classList.remove('hidden');
+}
+
+// 4. Fonction pour répondre à l'offre (Accepter ou Refuser)
+function actionRepondreEchange(accepte) {
+    document.getElementById('modal-reponse-echange').classList.add('hidden');
+    
+    if (offreEnCoursDeConsultation && indexOffreEnCours !== -1) {
+        // Envoyer la réponse au serveur
+        envoyerAuServeur({
+            type: 'REPONSE_ECHANGE',
+            initiateur: offreEnCoursDeConsultation.initiateur,
+            offre: offreEnCoursDeConsultation.offre,
+            demande: offreEnCoursDeConsultation.demande,
+            accepte: accepte
+        });
+
+        // IMPORTANT : On retire l'offre de la liste !
+        listeOffresRecues.splice(indexOffreEnCours, 1);
+        
+        // On met à jour le bouton et on rouvre la liste s'il reste des offres
+        majBoutonOffres();
+        if (listeOffresRecues.length > 0) {
+            ouvrirModalListeOffres();
+        }
+
+        // On réinitialise
+        offreEnCoursDeConsultation = null;
+        indexOffreEnCours = -1;
+    }
+}
+
+// ==========================================
+// ANIMATION ET LANCER DE DÉS CÔTÉ CLIENT
+// ==========================================
+let animationDesEnCours = false;
+
+function lancerDesAnime() {
+    if (animationDesEnCours) return;
+    animationDesEnCours = true;
+    document.getElementById('btn-lancer-des').disabled = true;
+    
+    const zoneAnim = document.getElementById('zone-anim-des');
+    const de1 = document.getElementById('de-1');
+    const de2 = document.getElementById('de-2');
+    
+    const resD1 = Math.floor(Math.random() * 6) + 1;
+    const resD2 = Math.floor(Math.random() * 6) + 1;
+
+    zoneAnim.classList.remove('hidden');
+    de1.className = 'de rolling';
+    de2.className = 'de rolling';
+
+    // Temps divisé par 2 : 750 ms (au lieu de 1500)
+    setTimeout(() => {
+        de1.className = 'de show-' + resD1;
+        de2.className = 'de show-' + resD2;
+        
+        // Temps divisé par 2 : 500 ms (au lieu de 1000)
+        setTimeout(() => {
+            // ON NE CACHE PLUS LA ZONE ICI ! Les dés restent affichés.
+            animationDesEnCours = false;
+            envoyerAuServeur({ type: 'TRAITER_LANCER_DES', d1: resD1, d2: resD2 });
+        }, 500);
+
+    }, 750);
 }
 
 // ==========================================

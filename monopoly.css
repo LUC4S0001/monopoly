@@ -487,3 +487,170 @@ button:disabled { background: #444; color: #888; cursor: not-allowed; }
 
 .icone-prix { color: #888; font-size: 12px; text-transform: uppercase; }
 .prix-item strong { color: #fff; font-size: 16px; }
+
+/* ========================================= */
+/* BOUTON D'ÉCHANGE                          */
+/* ========================================= */
+#btn-ouvrir-echange {
+    width: 100%;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    background-color: #9933cc; /* Violet Bourse/Échange */
+    color: white;
+    transition: background-color 0.2s;
+}
+
+#btn-ouvrir-echange:hover {
+    background-color: #7a29a3; /* Un peu plus sombre au survol */
+}
+
+/* ========================================= */
+/* AMÉLIORATIONS DE L'INTERFACE D'ÉCHANGE    */
+/* ========================================= */
+
+/* 1. Verrouillage total de la liste d'échange */
+#echange-donne-terrains,
+#echange-demande-terrains {
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+#echange-donne-terrains label,
+#echange-demande-terrains label {
+    display: flex !important;
+    flex-direction: row !important; /* Force l'affichage en ligne */
+    align-items: center !important;
+    justify-content: flex-start !important; /* Aligné à gauche */
+    margin: 0 0 8px 0 !important;
+    width: 100% !important;
+    cursor: pointer;
+}
+
+#echange-donne-terrains label input[type="checkbox"],
+#echange-demande-terrains label input[type="checkbox"] {
+    margin: 0 10px 0 0 !important;
+    flex-shrink: 0 !important;
+    width: 20px;
+}
+
+#echange-donne-terrains label span,
+#echange-demande-terrains label span {
+    text-align: left !important;
+    white-space: nowrap !important;
+    font-size: 14px !important;
+}
+
+/* 2. Positionner les fenêtres d'échange PAR-DESSUS le plateau */
+/* On crée une classe pour le fond sombre qui prend tout l'écran */
+.modal-overlay,
+#modal-creation-echange,
+#modal-reponse-echange {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+
+/* S'assurer que le contenu de la modale ne dépasse pas */
+.modal-content {
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+/* 3. Style du nouveau bouton "Offres en attente" */
+#btn-voir-offres {
+    width: 100%;
+    margin-top: 10px;
+    margin-bottom: 5px;
+    background-color: #ff9900;
+    color: white;
+    position: relative;
+    border: none;
+    font-weight: bold;
+}
+
+#btn-voir-offres:hover {
+    background-color: #e68a00;
+}
+
+/* Le petit badge rouge pour le nombre d'offres */
+#badge-nb-offres {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: red;
+    color: white;
+    border-radius: 50%; /* Cercle */
+    padding: 4px 8px;
+    font-size: 12px;
+    font-weight: bold;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+
+/* Petite animation pour attirer l'attention */
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
+    40% {transform: translateY(-5px);}
+    60% {transform: translateY(-3px);}
+}
+.bounce {
+    animation: bounce 1s;
+}
+
+/* ========================================= */
+/* ANIMATION DES DÉS 3D (INTÉGRÉE)           */
+/* ========================================= */
+#zone-anim-des {
+    display: flex; justify-content: center; align-items: center;
+    margin-bottom: 15px; /* Espace au-dessus du bouton */
+    perspective: 1000px;
+}
+
+.conteneur-des { display: flex; gap: 20px; }
+
+.de {
+    width: 60px; height: 60px; position: relative;
+    transform-style: preserve-3d; 
+    transition: transform 0.5s ease-out; /* Vitesse de rotation divisée par 2 */
+}
+
+.face {
+    position: absolute; width: 100%; height: 100%;
+    background: white; border: 2px solid #333; border-radius: 8px;
+    display: flex; justify-content: center; align-items: center;
+    font-size: 30px; font-weight: bold; color: #333; box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+}
+
+.front  { transform: translateZ(30px); }
+.back   { transform: rotateY(180deg) rotateZ(180deg) translateZ(30px); }
+.right  { transform: rotateY(90deg) translateZ(30px); }
+.left   { transform: rotateY(-90deg) translateZ(30px); }
+.top    { transform: rotateX(90deg) translateZ(30px); }
+.bottom { transform: rotateX(-90deg) translateZ(30px); }
+
+.rolling { animation: rollDice 1s infinite linear; }
+
+@keyframes rollDice {
+    0% { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
+    100% { transform: rotateX(720deg) rotateY(1080deg) rotateZ(360deg); }
+}
+
+.show-1 { transform: rotateX(0deg) rotateY(0deg); }
+.show-6 { transform: rotateX(180deg) rotateY(0deg); }
+.show-3 { transform: rotateY(-90deg) rotateX(0deg); }
+.show-4 { transform: rotateY(90deg) rotateX(0deg); }
+.show-5 { transform: rotateX(-90deg) rotateY(0deg); }
+.show-2 { transform: rotateX(90deg) rotateY(0deg); }
+
+.modal-buttons button:disabled {
+    background-color: #555 !important;
+    color: #999 !important;
+    cursor: not-allowed !important;
+    opacity: 0.8;
+}
