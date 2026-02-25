@@ -776,13 +776,9 @@ function genererPlateau() {
         caseDiv.id = 'case-' + i;
         caseDiv.setAttribute('onclick', `clicSurCase(${i})`);
         
-        // =========================================================
-        // EXCEPTION : DESIGN DE LA CASE PRISON (Case 10)
-        // =========================================================
         if (i === 10) {
             caseDiv.classList.add('case-prison');
 
-            // 1. Le carré intérieur (la prison)
             let zonePrison = document.createElement('div');
             zonePrison.className = 'zone-en-prison';
             let imgPrison = document.createElement('img');
@@ -795,7 +791,6 @@ function genererPlateau() {
             conteneurPionsPrison.className = 'pions-dans-prison';
             zonePrison.appendChild(conteneurPionsPrison);
 
-            // 2. Le couloir extérieur (la visite)
             let zoneVisite = document.createElement('div');
             zoneVisite.className = 'zone-visite';
             
@@ -803,27 +798,20 @@ function genererPlateau() {
             texteVisite.className = 'visite-texte';
             texteVisite.innerText = "Visite";
 
-            // 3. La zone pour les pions
             let zonePions = document.createElement('div');
             zonePions.className = 'zone-pions';
             zonePions.id = 'zone-pions-' + i;
 
-            // On assemble la case 10
             zoneVisite.appendChild(texteVisite);
             zoneVisite.appendChild(zonePions);
             caseDiv.appendChild(zonePrison);
             caseDiv.appendChild(zoneVisite);
-        } 
-        // =========================================================
-        // DESIGN STANDARD POUR LES 39 AUTRES CASES
-        // =========================================================
-        else {
+        } else {
             if (imagesTerrains[i]) {
                 let img = document.createElement('img');
                 img.src = imagesTerrains[i]; 
                 img.alt = nomsTerrains[i]; 
                 
-                // --- LA CORRECTION EST ICI : on a remis le système de direction ! ---
                 if (i >= 0 && i <= 10) { img.className = 'image-case img-bas'; } 
                 else if (i > 10 && i <= 20) { img.className = 'image-case img-gauche'; } 
                 else if (i > 20 && i <= 30) { img.className = 'image-case img-haut'; } 
@@ -839,7 +827,6 @@ function genererPlateau() {
             let nomTerrain = document.createElement('div');
             nomTerrain.className = 'nom-terrain';
             
-            // --- NOUVEAU : Affichage du prix si le terrain est achetable ! ---
             if (INFOS_TERRAINS[i]) {
                 nomTerrain.innerHTML = `${nomsTerrains[i]}<br><span class="prix-terrain">${INFOS_TERRAINS[i].prix} €</span>`;
             } else {
@@ -855,9 +842,6 @@ function genererPlateau() {
             caseDiv.appendChild(zonePions);
         }
         
-        // =========================================================
-        // PLACEMENT SUR LA GRILLE (Commun à toutes les cases)
-        // =========================================================
         if (i >= 0 && i <= 10) { 
             caseDiv.classList.add('case-bas');
             caseDiv.style.gridRow = 11; 
@@ -883,39 +867,31 @@ function genererPlateau() {
     }
 }
 
-// ==========================================
-// MOTEUR D'ACTIONS (ARRIVÉE SUR CASE & PAIEMENTS)
-// ==========================================
-
 function traiterArriveeCase(indexJoueur, idJoueur, position, scoreDes) {
     const terrain = INFOS_TERRAINS[position];
     const propriete = etatJeu.proprietes[position];
     const joueur = etatJeu.joueurs[indexJoueur];
 
-    // 1. TERRAIN ACHETABLE
     if (terrain) {
         if (!propriete && terrain.prix) {
             etatJeu.attenteAchat = true;
             
             if (idJoueur === monId) {
-                // L'hôte est tombé sur la case
                 propositionAchatEnCours = { idCase: position, terrain: terrain };
             } else {
-                // Un client est tombé sur la case, on lui envoie la proposition
                 const connClient = connexionsClients.find(c => c.peer === idJoueur);
                 if (connClient) {
                     connClient.send({ type: 'PROPOSER_ACHAT', idCase: position, terrain: terrain });
                 }
             }
-            return false; // Le tour n'est pas terminé, on attend la décision
+            return false;
         }
         else if (propriete.proprietaire !== idJoueur) {
             const indexProprio = etatJeu.joueurs.findIndex(j => j.id === propriete.proprietaire);
             const loyer = calculerLoyer(position, propriete.proprietaire, scoreDes);
             gererPaiementJoueur(indexJoueur, indexProprio, loyer, `de loyer pour ${terrain.nom}`);
         }
-    } 
-    // 2. CASE SURPRISE
+    }
     else if ([2, 7, 17, 22, 33, 36].includes(position)) {
         const carte = CARTES_SURPRISE[Math.floor(Math.random() * CARTES_SURPRISE.length)];
         etatJeu.log.push(`🃏 SURPRISE : ${carte.texte}`);
@@ -952,9 +928,6 @@ function traiterArriveeCase(indexJoueur, idJoueur, position, scoreDes) {
             if (carte.type === "allerA") {
                 joueur.position = carte.destination;
                 
-                // --- GESTION DE LA CASE DÉPART (Déplacement par carte) ---
-                // Si l'index de destination est plus petit que l'actuel, le joueur a fait le tour
-                // ATTENTION : On exclut la case 10 (Prison) car on ne touche pas 200€ en allant en prison !
                 if (carte.destination < anciennePosition && carte.destination !== 10) {
                     if (carte.destination === 0) {
                         joueur.argent += 400;
@@ -966,8 +939,7 @@ function traiterArriveeCase(indexJoueur, idJoueur, position, scoreDes) {
                 }
             }
             else {
-                joueur.position = (anciennePosition + carte.cases + 40) % 40; 
-                // Note: La carte "Reculez de 3 cases" ne donne jamais de 200€.
+                joueur.position = (anciennePosition + carte.cases + 40) % 40;
             }
             
             if (joueur.position === 10) {
@@ -977,7 +949,6 @@ function traiterArriveeCase(indexJoueur, idJoueur, position, scoreDes) {
                 return true; 
             }
             
-            // On relance la fonction pour appliquer l'effet de la case d'arrivée !
             return traiterArriveeCase(indexJoueur, idJoueur, joueur.position, scoreDes);
         }
     }
@@ -1014,13 +985,13 @@ function traiterArriveeCase(indexJoueur, idJoueur, position, scoreDes) {
 
 function gererPaiementBanque(indexJoueur, montant) {
     let joueur = etatJeu.joueurs[indexJoueur];
-    let argentDispo = Math.max(0, joueur.argent); // Ce qu'il peut donner tout de suite
+    let argentDispo = Math.max(0, joueur.argent);
     
-    joueur.argent -= montant; // Le solde descend (passe en négatif si pas assez)
+    joueur.argent -= montant;
 
     if (joueur.argent < 0) {
         etatJeu.cagnotteDettes = (etatJeu.cagnotteDettes || 0) + argentDispo;
-        joueur.creancier = 'benoit'; // NOUVEAU : On mémorise qu'il doit le reste à la cagnotte
+        joueur.creancier = 'benoit';
         etatJeu.log.push(`⚠️ ${joueur.pseudo} est dans le rouge ! Il donne ses ${argentDispo} € aux Dettes de Benoit et doit encore ${Math.abs(joueur.argent)} €.`);
     } else {
         etatJeu.cagnotteDettes = (etatJeu.cagnotteDettes || 0) + montant;
@@ -1030,13 +1001,13 @@ function gererPaiementBanque(indexJoueur, montant) {
 function gererPaiementJoueur(indexPayeur, indexReceveur, montant, motif) {
     let payeur = etatJeu.joueurs[indexPayeur];
     let receveur = etatJeu.joueurs[indexReceveur];
-    let argentDispo = Math.max(0, payeur.argent); // L'argent dispo avant le paiement
+    let argentDispo = Math.max(0, payeur.argent);
     
-    payeur.argent -= montant; // On applique la dette (passe en négatif si pas assez)
+    payeur.argent -= montant;
 
     if (payeur.argent < 0) {
-        receveur.argent += argentDispo; // Le receveur ne prend QUE ce qui est dispo !
-        payeur.creancier = receveur.id; // NOUVEAU : On mémorise l'ID de celui à qui il doit l'argent
+        receveur.argent += argentDispo;
+        payeur.creancier = receveur.id;
         etatJeu.log.push(`⚠️ ${payeur.pseudo} est dans le rouge ! Il donne ${argentDispo} € à ${receveur.pseudo} et lui doit encore ${Math.abs(payeur.argent)} € ${motif}.`);
     } else {
         receveur.argent += montant;
@@ -1044,9 +1015,6 @@ function gererPaiementJoueur(indexPayeur, indexReceveur, montant, motif) {
     }
 }
 
-// ==========================================
-// FONCTION POUR COPIER L'ID
-// ==========================================
 function copierId() {
     if (monId) {
         navigator.clipboard.writeText(monId).then(() => {
@@ -1082,9 +1050,6 @@ function actionPrison(choix) {
     envoyerAuServeur({ type: 'ACTION_PRISON', action: choix });
 }
 
-// ==========================================
-// SYSTÈME DE CONSTRUCTION (MAISONS/HÔTELS)
-// ==========================================
 let caseConstructionEnCours = null;
 
 function getPrixMaison(famille) {
@@ -1092,14 +1057,13 @@ function getPrixMaison(famille) {
     if (famille <= 4) return 100;
     if (famille <= 6) return 150;
     if (famille <= 8) return 200;
-    return 0; // Pas de maisons sur les gares/compagnies
+    return 0;
 }
 
 function clicSurCase(idCase) {
     const terrain = INFOS_TERRAINS[idCase];
-    if (!terrain) return; // Si on clique sur une case non achetable, on ne fait rien.
+    if (!terrain) return;
 
-    // 1. Remplissage des infos communes
     document.getElementById('info-nom-terrain').innerText = terrain.nom;
     document.getElementById('info-prix-achat').innerText = terrain.prix + " €";
     
@@ -1108,9 +1072,7 @@ function clicSurCase(idCase) {
     const loyersStandard = document.getElementById('info-loyers-standard');
     const loyersSpeciaux = document.getElementById('info-loyers-speciaux');
 
-    // 2. Gestion de l'affichage selon le type de terrain
     if (terrain.famille <= 8) {
-        // Terrains classiques avec maisons
         loyersStandard.classList.remove('hidden');
         loyersSpeciaux.classList.add('hidden');
         blocMaison.style.display = 'flex';
@@ -1123,7 +1085,6 @@ function clicSurCase(idCase) {
         document.getElementById('info-prix-maison').innerText = prixConst + " €";
         document.getElementById('info-prix-hotel').innerText = prixConst + " €";
     } else {
-        // Gares (9) et Compagnies (10) : Pas de maisons !
         loyersStandard.classList.add('hidden');
         loyersSpeciaux.classList.remove('hidden');
         blocMaison.style.display = 'none';
@@ -1137,22 +1098,17 @@ function clicSurCase(idCase) {
         }
     }
 
-    // ========================================================
-    // 3. GESTION DU BOUTON "CONSTRUIRE"
-    // ========================================================
     const btnConstruire = document.getElementById('btn-construire');
-    btnConstruire.style.display = 'none'; // Caché par défaut (pour les autres joueurs)
+    btnConstruire.style.display = 'none';
 
     const indexJoueur = etatJeu.joueurs.findIndex(j => j.id === monId);
     const propriete = etatJeu.proprietes[idCase];
     const cEstMonTour = (jeuEnCours && indexJoueur === etatJeu.tourActuel);
 
-    // Si je possède le terrain et qu'il accepte les maisons (famille <= 8)
     if (propriete && propriete.proprietaire === monId && terrain.famille <= 8) {
-        btnConstruire.style.display = 'inline-block'; // On l'affiche car je suis le proprio !
-        btnConstruire.disabled = true; // Grisé par défaut
+        btnConstruire.style.display = 'inline-block';
+        btnConstruire.disabled = true;
 
-        // Vérification de la famille complète
         let possedeTouteFamille = true;
         let terrainsFamille = [];
         for (const key in INFOS_TERRAINS) {
@@ -1164,7 +1120,6 @@ function clicSurCase(idCase) {
             }
         }
 
-        // On vérifie pourquoi on doit le griser, et on change le texte !
         if (!cEstMonTour) {
             btnConstruire.innerText = "Attendez votre tour";
         } else if (!possedeTouteFamille) {
@@ -1172,7 +1127,6 @@ function clicSurCase(idCase) {
         } else if (propriete.maisons >= 5) {
             btnConstruire.innerText = "Niveau Max Atteint";
         } else {
-            // Règle d'uniformité
             let peutConstruireUniformement = true;
             for (let prop of terrainsFamille) {
                 if (prop && prop.maisons < propriete.maisons) {
@@ -1182,25 +1136,20 @@ function clicSurCase(idCase) {
             if (!peutConstruireUniformement) {
                 btnConstruire.innerText = "Construisez ailleurs d'abord";
             } else {
-                // Tout est bon, on l'active !
                 btnConstruire.disabled = false; 
                 btnConstruire.innerText = "Construire";
             }
         }
     }
 
-    // ========================================================
-    // 4. GESTION DU BOUTON "VENDRE"
-    // ========================================================
     const btnVendre = document.getElementById('btn-vendre');
-    btnVendre.style.display = 'none'; // Caché par défaut (pour les autres)
+    btnVendre.style.display = 'none';
 
     if (propriete && propriete.proprietaire === monId) {
-        btnVendre.style.display = 'inline-block'; // On l'affiche car je suis le proprio !
-        btnVendre.disabled = true; // Grisé par défaut
+        btnVendre.style.display = 'inline-block';
+        btnVendre.disabled = true;
 
         if (propriete.maisons > 0) {
-            // VENTE DE BÂTIMENT
             const gain = Math.floor(getPrixMaison(terrain.famille) / 2);
             let peutVendreUniformement = true;
             for (const key in INFOS_TERRAINS) {
@@ -1238,7 +1187,6 @@ function clicSurCase(idCase) {
         }
     }
 
-    // 5. On mémorise la case cliquée et on affiche la fenêtre
     caseConstructionEnCours = idCase;
     document.getElementById('modal-infos-terrain').classList.remove('hidden');
 }
@@ -1270,9 +1218,6 @@ function actionVendre() {
     }
 }
 
-// ==========================================
-// SYSTÈME D'ÉCHANGE ENTRE JOUEURS
-// ==========================================
 let listeOffresRecues = [];
 
 function ouvrirModalEchange() {
@@ -1333,11 +1278,9 @@ function actionEnvoyerEchange() {
     const demandeArgent = parseInt(document.getElementById('echange-demande-argent').value) || 0;
     const demandeCartes = parseInt(document.getElementById('echange-demande-cartes').value) || 0;
     
-    // Récolte des terrains cochés
     const offreTerrains = Array.from(document.querySelectorAll('.chk-donne-terrain:checked')).map(cb => parseInt(cb.value));
     const demandeTerrains = Array.from(document.querySelectorAll('.chk-demande-terrain:checked')).map(cb => parseInt(cb.value));
 
-    // RÈGLE : Les deux joueurs doivent donner AU MOINS une chose !
     const totalOffre = offreArgent + offreCartes + offreTerrains.length;
     const totalDemande = demandeArgent + demandeCartes + demandeTerrains.length;
 
@@ -1357,39 +1300,30 @@ function actionEnvoyerEchange() {
     document.getElementById('modal-creation-echange').classList.add('hidden');
 }
 
-// ==========================================
-// GESTION DE LA LISTE DES OFFRES REÇUES
-// ==========================================
-
-// Variable temporaire pour l'offre qu'on est en train de regarder
 let offreEnCoursDeConsultation = null;
 let indexOffreEnCours = -1;
 
-// 1. Met à jour le bouton orange "Offres en attente"
 function majBoutonOffres() {
     const btn = document.getElementById('btn-voir-offres');
     const badge = document.getElementById('badge-nb-offres');
     const nbOffres = listeOffresRecues.length;
 
     if (nbOffres > 0) {
-        btn.classList.remove('hidden'); // Afficher le bouton
-        badge.innerText = nbOffres; // Mettre à jour le nombre
-        // Petite animation "bounce" pour attirer l'œil
+        btn.classList.remove('hidden');
+        badge.innerText = nbOffres;
         btn.classList.add('bounce');
         setTimeout(() => { btn.classList.remove('bounce'); }, 1000);
     } else {
-        btn.classList.add('hidden'); // Cacher le bouton s'il n'y a pas d'offres
+        btn.classList.add('hidden');
     }
 }
 
-// 2. Ouvre la fenêtre avec la liste des offres
 function ouvrirModalListeOffres() {
     if (listeOffresRecues.length === 0) return;
 
     const conteneur = document.getElementById('conteneur-liste-offres');
-    conteneur.innerHTML = ''; // On vide la liste
+    conteneur.innerHTML = '';
 
-    // On crée une ligne pour chaque offre
     listeOffresRecues.forEach((offreData, index) => {
         const initiateur = etatJeu.joueurs.find(j => j.id === offreData.initiateur);
         const divOffre = document.createElement('div');
@@ -1420,7 +1354,6 @@ function afficherDetailsOffre(index) {
     const data = offreEnCoursDeConsultation;
     const initiateur = etatJeu.joueurs.find(j => j.id === data.initiateur);
     
-    // Construction du texte de l'offre
     let texteOffre = `<strong>${initiateur ? initiateur.pseudo : 'Joueur inconnu'} vous propose :</strong><br>`;
     if (data.offre.argent > 0) texteOffre += `💰 ${data.offre.argent} €<br>`;
     if (data.offre.cartes > 0) texteOffre += `🃏 ${data.offre.cartes} Carte(s) Prison<br>`;
@@ -1445,17 +1378,14 @@ function afficherDetailsOffre(index) {
 
     document.getElementById('texte-reponse-echange').innerHTML = texteOffre;
     
-    // On ferme la liste et on ouvre la fenêtre de détail
     fermerModalListeOffres();
     document.getElementById('modal-reponse-echange').classList.remove('hidden');
 }
 
-// 4. Fonction pour répondre à l'offre (Accepter ou Refuser)
 function actionRepondreEchange(accepte) {
     document.getElementById('modal-reponse-echange').classList.add('hidden');
     
     if (offreEnCoursDeConsultation && indexOffreEnCours !== -1) {
-        // Envoyer la réponse au serveur
         envoyerAuServeur({
             type: 'REPONSE_ECHANGE',
             initiateur: offreEnCoursDeConsultation.initiateur,
@@ -1464,24 +1394,18 @@ function actionRepondreEchange(accepte) {
             accepte: accepte
         });
 
-        // IMPORTANT : On retire l'offre de la liste !
         listeOffresRecues.splice(indexOffreEnCours, 1);
         
-        // On met à jour le bouton et on rouvre la liste s'il reste des offres
         majBoutonOffres();
         if (listeOffresRecues.length > 0) {
             ouvrirModalListeOffres();
         }
 
-        // On réinitialise
         offreEnCoursDeConsultation = null;
         indexOffreEnCours = -1;
     }
 }
 
-// ==========================================
-// ANIMATION ET LANCER DE DÉS CÔTÉ CLIENT
-// ==========================================
 let animationDesEnCours = false;
 
 function lancerDesAnime() {
@@ -1500,14 +1424,11 @@ function lancerDesAnime() {
     de1.className = 'de rolling';
     de2.className = 'de rolling';
 
-    // Temps divisé par 2 : 750 ms (au lieu de 1500)
     setTimeout(() => {
         de1.className = 'de show-' + resD1;
         de2.className = 'de show-' + resD2;
         
-        // Temps divisé par 2 : 500 ms (au lieu de 1000)
         setTimeout(() => {
-            // ON NE CACHE PLUS LA ZONE ICI ! Les dés restent affichés.
             animationDesEnCours = false;
             envoyerAuServeur({ type: 'TRAITER_LANCER_DES', d1: resD1, d2: resD2 });
         }, 500);
@@ -1515,10 +1436,7 @@ function lancerDesAnime() {
     }, 750);
 }
 
-// ==========================================
-// FONCTIONS POUR L'ACHAT DE TERRAINS
-// ==========================================
-let caseAchatEnCours = null; // Mémoire locale du client
+let caseAchatEnCours = null;
 
 function afficherModalAchat(idCase, terrain) {
     caseAchatEnCours = idCase;
@@ -1527,9 +1445,6 @@ function afficherModalAchat(idCase, terrain) {
     document.getElementById('modal-achat').classList.remove('hidden');
 }
 
-// ==========================================
-// RÉPONSE À UNE PROPOSITION D'ACHAT
-// ==========================================
 function repondreAchatTerrain(accepte) {
     if (!propositionAchatEnCours) return;
     

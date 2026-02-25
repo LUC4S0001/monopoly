@@ -14,9 +14,6 @@ button { padding: 10px 20px; background: #208337; color: white; border: none; bo
 button:disabled {background-color: #666 !important; color: white !important; cursor: not-allowed !important; opacity: 0.8;}
 .separator { margin: 15px 0; font-weight: bold; color: #888; }
 
-/* ----------------------------------- */
-/* LE PLATEAU RESPONSIVE (ÉLASTIQUE)  */
-/* ----------------------------------- */
 .plateau {
     display: grid;
     grid-template-columns: repeat(11, 1fr);
@@ -30,7 +27,6 @@ button:disabled {background-color: #666 !important; color: white !important; cur
     margin: 15px auto;
 }
 
-/* L'INTÉRIEUR D'UNE CASE */
 .case { 
     background: #262626; 
     border: 1px solid #444; 
@@ -40,7 +36,6 @@ button:disabled {background-color: #666 !important; color: white !important; cur
     align-items: center; 
     padding: 1px;
     box-sizing: border-box;
-    /* LES DEUX LIGNES QUI AVAIENT SAUTÉ : */
     position: relative; 
     overflow: visible !important; 
 }
@@ -74,7 +69,6 @@ button:disabled {background-color: #666 !important; color: white !important; cur
     padding-bottom: 2px;
 }
 
-/* LES PIONS DES JOUEURS */
 .pion { 
     width: clamp(8px, 1.5vmin, 16px); 
     height: clamp(8px, 1.5vmin, 16px); 
@@ -89,9 +83,6 @@ button:disabled {background-color: #666 !important; color: white !important; cur
 .pion-3 { background-color: #ff9900; } 
 .pion-4 { background-color: #9933cc; } 
 
-/* ----------------------------------- */
-/* LE CENTRE DU PLATEAU                */
-/* ----------------------------------- */
 .centre-plateau {
     grid-column: 2 / 11;
     grid-row: 2 / 11;
@@ -140,7 +131,6 @@ button:disabled {background-color: #666 !important; color: white !important; cur
     border: 1px solid #444;
 }
 
-/* --- STYLE POUR LES IMAGES DES CASES --- */
 .image-case {
     position: absolute;
     width: clamp(30px, 3.5vmin, 40px); 
@@ -158,15 +148,11 @@ button:disabled {background-color: #666 !important; color: white !important; cur
 .img-haut { bottom: 0; left: 50%; transform: translate(-50%, 50%); }
 .img-droite { top: 50%; left: 0; transform: translate(-50%, -50%); }
 
-/* --- ESPACEMENT POUR NE PAS CACHER LE TEXTE --- */
 .case-bas { padding-top: clamp(15px, 3vmin, 25px); }
 .case-gauche { padding-right: clamp(15px, 3vmin, 25px); }
 .case-haut { padding-bottom: clamp(15px, 3vmin, 25px); }
 .case-droite { padding-left: clamp(15px, 3vmin, 25px); }
 
-/* ========================================= */
-/* DESIGN SPÉCIAL : CASE PRISON (Case 10)    */
-/* ========================================= */
 .case.case-prison {
     padding: 0 !important;
     background-color: #3d1f1f; 
@@ -215,9 +201,6 @@ button:disabled {background-color: #666 !important; color: white !important; cur
     justify-content: flex-start;
 }
 
-/* ========================================= */
-/* MISE EN PAGE : PLATEAU + PANNEAU DROIT    */
-/* ========================================= */
 #zone-globale-jeu {
     display: flex;
     flex-wrap: wrap; 
@@ -236,15 +219,10 @@ button:disabled {background-color: #666 !important; color: white !important; cur
     border: 2px solid #444;
     border-radius: 8px;
     padding: 15px;
-    
-    /* Tailles dynamiques pour s'aligner avec le plateau */
     min-width: 250px;
     width: 22vw; 
-    max-height: 92vh; /* Ne dépasse jamais la hauteur du plateau ! */
-    
+    max-height: 92vh;
     box-shadow: 0 4px 10px rgba(0,0,0,0.6);
-    
-    /* Flexbox pour gérer l'espace intérieur */
     display: flex;
     flex-direction: column;
 }
@@ -262,27 +240,21 @@ button:disabled {background-color: #666 !important; color: white !important; cur
     flex-direction: column; 
     gap: 10px;
     width: 100%;
-    /* Empêche les scores de s'écraser si l'historique grandit */
     flex-shrink: 0; 
 }
 
-/* ... (Garde ton code .score-joueur, .score-joueur span, etc. intact ici) ... */
-
-/* --- NOUVEAU STYLE POUR L'HISTORIQUE SCROLLABLE --- */
 #historique {
-    flex-grow: 1; /* Prend TOUT l'espace vertical restant dans le panneau */
-    overflow-y: auto; /* Ajoute une barre de scroll si ça déborde */
-    
+    flex-grow: 1;
+    overflow-y: auto;
     background: rgba(0, 0, 0, 0.4); 
     border: 1px solid #444;
     border-radius: 4px;
     padding: 10px;
-    
-    text-align: left; /* Texte aligné à gauche pour une liste */
+    text-align: left;
 }
 
 #liste-historique {
-    list-style-type: none; /* Enlève les puces de base */
+    list-style-type: none;
     padding: 0;
     margin: 0;
     display: flex;
@@ -293,12 +265,11 @@ button:disabled {background-color: #666 !important; color: white !important; cur
 #liste-historique li {
     font-size: clamp(10px, 1.4vmin, 14px);
     color: #ccc;
-    border-bottom: 1px dashed #444; /* Petite ligne de séparation */
+    border-bottom: 1px dashed #444;
     padding-bottom: 6px;
     line-height: 1.3;
 }
 
-/* Customisation de la petite barre de scroll (Design) */
 #historique::-webkit-scrollbar {
     width: 6px;
 }
@@ -310,11 +281,11 @@ button:disabled {background-color: #666 !important; color: white !important; cur
 .score-joueur {
     background: rgba(0, 0, 0, 0.4);
     border: 1px solid #444;
-    border-left: 4px solid white; /* La couleur de la bordure change avec le JS */
+    border-left: 4px solid white;
     padding: 10px 15px;
     border-radius: 4px;
     display: flex;
-    justify-content: space-between; /* Sépare le pseudo à gauche et l'argent à droite */
+    justify-content: space-between;
     align-items: center;
 }
 
@@ -326,31 +297,28 @@ button:disabled {background-color: #666 !important; color: white !important; cur
 
 .score-joueur strong {
     font-size: clamp(14px, 2vmin, 18px);
-    color: #4da6ff; /* Bleu "billet" */
+    color: #4da6ff;
 }
 
 .prix-terrain {
     display: block;
     font-size: clamp(6px, 1.2vmin, 11px);
     font-weight: normal;
-    color: #aaaaaa; /* Gris clair pour bien s'intégrer au thème sombre */
+    color: #aaaaaa;
     margin-top: 3px;
 }
 
-/* ========================================= */
-/* MODAL (POP-UP) D'ACHAT DE TERRAIN         */
-/* ========================================= */
 #modal-achat {
     position: fixed;
     top: 0; 
     left: 0; 
     width: 100vw; 
     height: 100vh;
-    background: rgba(0, 0, 0, 0.85); /* Assombrit tout le reste de l'écran */
+    background: rgba(0, 0, 0, 0.85);
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 1000; /* S'assure que la fenêtre est au premier plan */
+    z-index: 1000;
 }
 
 .modal-content {
@@ -383,9 +351,6 @@ button:disabled {background-color: #666 !important; color: white !important; cur
     justify-content: space-around;
 }
 
-/* ========================================= */
-/* FENÊTRE PRISON ET PIONS DERRIÈRE LES BARREAUX */
-/* ========================================= */
 #modal-prison {
     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
     background: rgba(0, 0, 0, 0.85);
@@ -393,7 +358,6 @@ button:disabled {background-color: #666 !important; color: white !important; cur
     z-index: 1000;
 }
 
-/* La zone invisible superposée à l'image prison.jpg */
 .pions-dans-prison {
     position: absolute;
     top: 0; left: 0;
@@ -403,16 +367,13 @@ button:disabled {background-color: #666 !important; color: white !important; cur
     justify-content: center;
     align-items: center;
     gap: 2px;
-    z-index: 10; /* Force les pions à passer au-dessus de l'image */
+    z-index: 10;
 }
 
-/* ========================================= */
-/* MAISONS, HÔTELS ET CLICS SUR LES CASES    */
-/* ========================================= */
 .maison-visuelle {
     width: clamp(6px, 1.2vmin, 12px);
     height: clamp(6px, 1.2vmin, 12px);
-    background-color: #28a745; /* Vert classique */
+    background-color: #28a745;
     border: 1px solid #111;
     border-radius: 2px;
 }
@@ -420,23 +381,20 @@ button:disabled {background-color: #666 !important; color: white !important; cur
 .hotel-visuel {
     width: clamp(10px, 2vmin, 16px);
     height: clamp(10px, 2vmin, 16px);
-    background-color: #d9534f; /* Rouge classique */
+    background-color: #d9534f;
     border: 1px solid #111;
     border-radius: 2px;
 }
 
 .case {
-    cursor: pointer; /* Indique qu'on peut cliquer sur les cases */
+    cursor: pointer;
     transition: filter 0.2s;
 }
 
 .case:hover {
-    filter: brightness(1.2); /* S'illumine légèrement au survol */
+    filter: brightness(1.2);
 }
 
-/* ========================================= */
-/* DESIGN DE LA CARTE DE PROPRIÉTÉ           */
-/* ========================================= */
 #modal-infos-terrain {
     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
     background: rgba(0, 0, 0, 0.7);
@@ -445,7 +403,7 @@ button:disabled {background-color: #666 !important; color: white !important; cur
 }
 
 .card-terrain {
-    background: #2b2b36; /* Un beau bleu/gris sombre */
+    background: #2b2b36;
     border: 1px solid #555;
     box-shadow: 0 10px 30px rgba(0,0,0,0.8);
     min-width: 300px;
@@ -488,27 +446,19 @@ button:disabled {background-color: #666 !important; color: white !important; cur
 .icone-prix { color: #888; font-size: 12px; text-transform: uppercase; }
 .prix-item strong { color: #fff; font-size: 16px; }
 
-/* ========================================= */
-/* BOUTON D'ÉCHANGE                          */
-/* ========================================= */
 #btn-ouvrir-echange {
     width: 100%;
     margin-top: 10px;
     margin-bottom: 10px;
-    background-color: #9933cc; /* Violet Bourse/Échange */
+    background-color: #9933cc;
     color: white;
     transition: background-color 0.2s;
 }
 
 #btn-ouvrir-echange:hover {
-    background-color: #7a29a3; /* Un peu plus sombre au survol */
+    background-color: #7a29a3;
 }
 
-/* ========================================= */
-/* AMÉLIORATIONS DE L'INTERFACE D'ÉCHANGE    */
-/* ========================================= */
-
-/* 1. Verrouillage total de la liste d'échange */
 #echange-donne-terrains,
 #echange-demande-terrains {
     padding: 0 !important;
@@ -518,9 +468,9 @@ button:disabled {background-color: #666 !important; color: white !important; cur
 #echange-donne-terrains label,
 #echange-demande-terrains label {
     display: flex !important;
-    flex-direction: row !important; /* Force l'affichage en ligne */
+    flex-direction: row !important;
     align-items: center !important;
-    justify-content: flex-start !important; /* Aligné à gauche */
+    justify-content: flex-start !important;
     margin: 0 0 8px 0 !important;
     width: 100% !important;
     cursor: pointer;
@@ -540,8 +490,6 @@ button:disabled {background-color: #666 !important; color: white !important; cur
     font-size: 14px !important;
 }
 
-/* 2. Positionner les fenêtres d'échange PAR-DESSUS le plateau */
-/* On crée une classe pour le fond sombre qui prend tout l'écran */
 .modal-overlay,
 #modal-creation-echange,
 #modal-reponse-echange {
@@ -557,13 +505,11 @@ button:disabled {background-color: #666 !important; color: white !important; cur
     z-index: 2000;
 }
 
-/* S'assurer que le contenu de la modale ne dépasse pas */
 .modal-content {
     max-height: 90vh;
     overflow-y: auto;
 }
 
-/* 3. Style du nouveau bouton "Offres en attente" */
 #btn-voir-offres {
     width: 100%;
     margin-top: 10px;
@@ -579,21 +525,19 @@ button:disabled {background-color: #666 !important; color: white !important; cur
     background-color: #e68a00;
 }
 
-/* Le petit badge rouge pour le nombre d'offres */
 #badge-nb-offres {
     position: absolute;
     top: -8px;
     right: -8px;
     background: red;
     color: white;
-    border-radius: 50%; /* Cercle */
+    border-radius: 50%;
     padding: 4px 8px;
     font-size: 12px;
     font-weight: bold;
     box-shadow: 0 2px 5px rgba(0,0,0,0.3);
 }
 
-/* Petite animation pour attirer l'attention */
 @keyframes bounce {
     0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
     40% {transform: translateY(-5px);}
@@ -603,12 +547,9 @@ button:disabled {background-color: #666 !important; color: white !important; cur
     animation: bounce 1s;
 }
 
-/* ========================================= */
-/* ANIMATION DES DÉS 3D (INTÉGRÉE)           */
-/* ========================================= */
 #zone-anim-des {
     display: flex; justify-content: center; align-items: center;
-    margin-bottom: 15px; /* Espace au-dessus du bouton */
+    margin-bottom: 15px;
     perspective: 1000px;
 }
 
@@ -617,7 +558,7 @@ button:disabled {background-color: #666 !important; color: white !important; cur
 .de {
     width: 60px; height: 60px; position: relative;
     transform-style: preserve-3d; 
-    transition: transform 0.5s ease-out; /* Vitesse de rotation divisée par 2 */
+    transition: transform 0.5s ease-out;
 }
 
 .face {
