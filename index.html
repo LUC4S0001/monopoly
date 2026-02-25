@@ -21,11 +21,46 @@
 
     <div id="ecran-lobby" class="box hidden">
         <h2>Salon d'attente</h2>
-        <p>ID de la partie : <br><strong id="affichage-id">...</strong>
-           <button id="btn-copier" class="hidden" onclick="copierId()" style="padding: 4px 8px; font-size: 12px; margin-left: 10px; background-color: #4da6ff;">📋 Copier</button>
-        </p>
+        <div id="zone-id-partie" style="margin-bottom: 20px;">
+            ID de la partie : <br><span id="affichage-id" style="font-weight: bold;"></span>
+            <button id="btn-copier" class="hidden" onclick="copierId()">Copier</button>
+        </div>
         <p>Joueurs connectés :</p>
         <ul id="liste-joueurs-lobby" style="list-style: none; padding: 0;"></ul>
+        <div id="zone-parametres" style="margin-bottom: 20px; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; text-align: left;">
+            <h3 style="margin-top: 0; text-align: center;">⚙️ Règles de la partie</h3>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <label>Argent de départ :</label>
+                <input type="number" id="param-argent" value="1500" step="100" min="500" max="5000" style="width: 80px;" onchange="changerParametres()">
+                <span id="param-argent-affichage" class="hidden" style="font-weight: bold; color: #4da6ff;">1500 €</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <label>Loyer doublé (famille complète) :</label>
+                <input type="checkbox" id="param-loyer-double" checked onchange="changerParametres()" style="width:20px;">
+                <span id="param-loyer-double-affichage" class="hidden" style="font-weight: bold;">Oui</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <label>Cagnotte "Dettes de Benoit" :</label>
+                <input type="checkbox" id="param-cagnotte" checked onchange="changerParametres()" style="width:20px;">
+                <span id="param-cagnotte-affichage" class="hidden" style="font-weight: bold;">Oui</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <label>Bonus 200 € × 2 (Pile sur Départ) :</label>
+                <input type="checkbox" id="param-bingo-depart" checked onchange="changerParametres()" style="width:20px;">
+                <span id="param-bingo-depart-affichage" class="hidden" style="font-weight: bold;">Oui</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <label>Construction uniforme imposée :</label>
+                <input type="checkbox" id="param-uniformite" checked onchange="changerParametres()" style="width:20px;">
+                <span id="param-uniformite-affichage" class="hidden" style="font-weight: bold;">Oui</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <label>Pas de loyer si en prison :</label>
+                <input type="checkbox" id="param-loyer-prison" onchange="changerParametres()" style="width:20px;">
+                <span id="param-loyer-prison-affichage" class="hidden" style="font-weight: bold;">Non</span>
+            </div>
+        </div>
         <button id="btn-lancer-partie" class="hidden" onclick="demarrerLaPartie()">Lancer la partie</button>
         <p id="message-attente">En attente de l'hôte...</p>
     </div>
@@ -177,6 +212,13 @@
                 <button onclick="fermerModalListeOffres()" style="background-color: #d9534f;">Fermer</button>
             </div>
         </div>
+    </div>
+
+    <div id="ecran-fin-partie" class="hidden" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.9); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+        <h1 style="color: #ffd700; font-size: 4rem; margin-bottom: 10px; text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);">🎉 VICTOIRE ! 🎉</h1>
+        <h2 id="nom-vainqueur" style="color: white; font-size: 2.5rem; margin-bottom: 20px;">Le Joueur a gagné !</h2>
+        <p style="color: #ccc; font-size: 1.2rem; margin-bottom: 40px;">Tous les autres joueurs ont été ruinés ou ont pris la fuite. Le monopole est total !</p>
+        <button onclick="location.reload()" style="background-color: #28a745; padding: 15px 30px; font-size: 1.2rem; font-weight: bold; border-radius: 8px; cursor: pointer;">Retourner à l'accueil</button>
     </div>
 
     <script src="monopoly.js"></script>

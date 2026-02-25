@@ -13,7 +13,15 @@ let etatJeu = {
     tourActuel: 0, 
     log: [],
     proprietes: {}, 
-    cagnotteDettes: 0
+    cagnotteDettes: 0,
+    parametres: {
+        argentDepart: 1500,
+        loyerDoubleFamille: true,
+        cagnotteActive: true,
+        bingoDepart: true,
+        uniformiteConstruction: true,
+        pasDeLoyerEnPrison: false
+    }
 };
 
 const nomsTerrains = [
@@ -120,11 +128,33 @@ peer.on('error', (err) => {
     }
 });
 
+function changerParametres() {
+    if (!estHote) return;
+    
+    const nouvelArgent = parseInt(document.getElementById('param-argent').value) || 1500;
+    const loyerDouble = document.getElementById('param-loyer-double').checked;
+    const cagnotteActive = document.getElementById('param-cagnotte').checked;
+    const pasDeLoyerEnPrison = document.getElementById('param-loyer-prison').checked;
+    const bingoDepart = document.getElementById('param-bingo-depart').checked;
+    const uniformiteConstruction = document.getElementById('param-uniformite').checked;
+    
+    etatJeu.parametres.argentDepart = nouvelArgent;
+    etatJeu.parametres.loyerDoubleFamille = loyerDouble;
+    etatJeu.parametres.cagnotteActive = cagnotteActive;
+    etatJeu.parametres.pasDeLoyerEnPrison = pasDeLoyerEnPrison;
+    etatJeu.parametres.bingoDepart = bingoDepart;
+    etatJeu.parametres.uniformiteConstruction = uniformiteConstruction;
+    
+    etatJeu.joueurs.forEach(j => j.argent = nouvelArgent);
+
+    diffuserEtat();
+}
+
 function creerPartie() {
     monPseudo = document.getElementById('mon-pseudo').value || "Hôte";
     estHote = true;
     
-    etatJeu.joueurs.push({ id: monId, pseudo: monPseudo, position: 0, couleur: 0, argent: 1500, compteurDoubles: 0 });
+    etatJeu.joueurs.push({ id: monId, pseudo: monPseudo, position: 0, couleur: 0, argent: etatJeu.parametres.argentDepart, compteurDoubles: 0 });
     
     passerAuLobby();
     document.getElementById('affichage-id').innerText = monId || "Génération en cours...";
@@ -155,7 +185,7 @@ function rejoindrePartie() {
     maConnexionHost.on('close', () => {
         if (maConnexionHost.fermetureAttendue) return; 
 
-        alert("❌ L'hôte de la partie s'est déconnecté. La partie est annulée.");
+        alert("❌ L'hôte de la partie s'est déconnecté. La partie est terminée.");
         location.reload();
     });
 
@@ -227,7 +257,11 @@ function calculerLoyer(idCase, idProprio, scoreDes) {
             return terrain.loyers[propriete.maisons]; 
         } else {
             if (terrainsPossedes === tailleFamille) {
-                return terrain.loyers[0] * 2; 
+                if (etatJeu.parametres.loyerDoubleFamille) {
+                    return terrain.loyers[0] * 2; 
+                } else {
+                    return terrain.loyers[0];
+                }
             } else {
                 return terrain.loyers[0];
             }
@@ -238,7 +272,7 @@ function calculerLoyer(idCase, idProprio, scoreDes) {
 
 function traiterLogiqueJeu(data, idJoueur, connExpediteur) {
     if (data.type === 'REJOINDRE') {
-        etatJeu.joueurs.push({ id: idJoueur, pseudo: data.pseudo, position: 0, couleur: etatJeu.joueurs.length, argent: 1500, compteurDoubles: 0 });
+        etatJeu.joueurs.push({ id: idJoueur, pseudo: data.pseudo, position: 0, couleur: etatJeu.joueurs.length, argent: etatJeu.parametres.argentDepart, compteurDoubles: 0 });
         diffuserEtat();
     }
     else if (data.type === 'LANCER_PARTIE') {
@@ -361,10 +395,14 @@ function traiterLogiqueJeu(data, idJoueur, connExpediteur) {
         if (data.action === 'payer') {
             if (j.argent >= 50) {
                 j.argent -= 50;
-                etatJeu.cagnotteDettes = (etatJeu.cagnotteDettes || 0) + 50;
+                if (etatJeu.parametres.cagnotteActive) {
+                    etatJeu.cagnotteDettes = (etatJeu.cagnotteDettes || 0) + 50;
+                    etatJeu.log.push(`🔓 ${j.pseudo} paie 50 € (qui vont aux Dettes de Benoit) et sort de prison !`);
+                } else {
+                    etatJeu.log.push(`🔓 ${j.pseudo} paie 50 € à la banque et sort de prison !`);
+                }
                 j.enPrison = false;
                 j.toursEnPrison = 0;
-                etatJeu.log.push(`🔓 ${j.pseudo} paie 50 € (qui vont aux Dettes de Benoit) et sort de prison !`);
             }
         }
         else if (data.action === 'carte') {
@@ -530,7 +568,11 @@ function gererDeplacementApresDes(indexJoueur, idJoueur, score) {
     const anciennePosition = j.position;
     j.position = (anciennePosition + score) % 40;
     if (anciennePosition + score === 40) {
-        j.argent += 400; etatJeu.log.push(`🎯 BINGO Départ : +400 € !`);
+        if (etatJeu.parametres.bingoDepart) {
+            j.argent += 400; etatJeu.log.push(`🎯 BINGO Départ : +400 € !`);
+        } else {
+            j.argent += 200; etatJeu.log.push(`🏁 Passage Départ : +200 €.`);
+        }
     } else if (anciennePosition + score > 40) {
         j.argent += 200; etatJeu.log.push(`🏁 Passage Départ : +200 €.`);
     }
@@ -682,11 +724,15 @@ function appliquerEtatJeu() {
     if (caseBenoit) {
         const divNom = caseBenoit.querySelector('.nom-terrain');
         if (divNom) {
-            const montant = etatJeu.cagnotteDettes || 0;
-            if (montant > 0) {
-                divNom.innerHTML = `Dettes de Benoit<br><span style="color: #4da6ff; font-size: clamp(8px, 1.5vmin, 14px); font-weight: bold;">💰 ${montant} €</span>`;
+            if (!etatJeu.parametres.cagnotteActive) {
+                divNom.innerHTML = `Dettes de Benoit<br><span style="color: #777; font-size: clamp(6px, 1.2vmin, 10px);">Repos</span>`;
             } else {
-                divNom.innerHTML = `Dettes de Benoit<br><span style="color: #777; font-size: clamp(6px, 1.2vmin, 10px);">0 €</span>`;
+                const montant = etatJeu.cagnotteDettes || 0;
+                if (montant > 0) {
+                    divNom.innerHTML = `Dettes de Benoit<br><span style="color: #4da6ff; font-size: clamp(8px, 1.5vmin, 14px); font-weight: bold;">💰 ${montant} €</span>`;
+                } else {
+                    divNom.innerHTML = `Dettes de Benoit<br><span style="color: #777; font-size: clamp(6px, 1.2vmin, 10px);">0 €</span>`;
+                }
             }
         }
     }
@@ -730,6 +776,24 @@ function appliquerEtatJeu() {
         const conteneurHistorique = document.getElementById('historique');
         conteneurHistorique.scrollTop = 0;
     }
+
+    const ecranFin = document.getElementById('ecran-fin-partie');
+    if (jeuEnCours && etatJeu.joueurs.length === 1) {
+        const vainqueur = etatJeu.joueurs[0];
+        
+        if (ecranFin) {
+            ecranFin.classList.remove('hidden');
+            document.getElementById('nom-vainqueur').innerText = vainqueur.pseudo + " remporte la partie !";
+        }
+        
+        const btnLancerDesFin = document.getElementById('btn-lancer-des');
+        if (btnLancerDesFin) {
+            btnLancerDesFin.disabled = true;
+            btnLancerDesFin.innerText = "Partie terminée";
+        }
+    } else {
+        if (ecranFin) ecranFin.classList.add('hidden');
+    }
 }
 
 function mettreAJourLobby() {
@@ -752,14 +816,148 @@ function mettreAJourLobby() {
             msgAttente.style.color = "#aaa";
         }
     }
+
+    const inputArgent = document.getElementById('param-argent');
+    const affichageArgent = document.getElementById('param-argent-affichage');
+    if (inputArgent && affichageArgent && etatJeu.parametres) {
+        if (estHote) {
+            inputArgent.classList.remove('hidden');
+            affichageArgent.classList.add('hidden');
+            inputArgent.value = etatJeu.parametres.argentDepart;
+        } else {
+            inputArgent.classList.add('hidden');
+            affichageArgent.classList.remove('hidden');
+            affichageArgent.innerText = etatJeu.parametres.argentDepart + " €";
+        }
+    }
+
+    const inputLoyer = document.getElementById('param-loyer-double');
+    const affichageLoyer = document.getElementById('param-loyer-double-affichage');
+    if (inputLoyer && affichageLoyer && etatJeu.parametres) {
+        if (estHote) {
+            inputLoyer.style.display = 'inline-block';
+            affichageLoyer.classList.add('hidden');
+            inputLoyer.checked = etatJeu.parametres.loyerDoubleFamille;
+        } else {
+            inputLoyer.style.display = 'none';
+            affichageLoyer.classList.remove('hidden');
+            
+            if (etatJeu.parametres.loyerDoubleFamille) {
+                affichageLoyer.innerText = "Oui";
+                affichageLoyer.style.color = "#28a745";
+            } else {
+                affichageLoyer.innerText = "Non";
+                affichageLoyer.style.color = "#d9534f";
+            }
+        }
+    }
+
+    const inputCagnotte = document.getElementById('param-cagnotte');
+    const affichageCagnotte = document.getElementById('param-cagnotte-affichage');
+    if (inputCagnotte && affichageCagnotte && etatJeu.parametres) {
+        if (estHote) {
+            inputCagnotte.style.display = 'inline-block';
+            affichageCagnotte.classList.add('hidden');
+            inputCagnotte.checked = etatJeu.parametres.cagnotteActive;
+        } else {
+            inputCagnotte.style.display = 'none';
+            affichageCagnotte.classList.remove('hidden');
+            
+            if (etatJeu.parametres.cagnotteActive) {
+                affichageCagnotte.innerText = "Oui";
+                affichageCagnotte.style.color = "#28a745";
+            } else {
+                affichageCagnotte.innerText = "Non";
+                affichageCagnotte.style.color = "#d9534f";
+            }
+        }
+    }
+
+    const inputLoyerPrison = document.getElementById('param-loyer-prison');
+    const affichageLoyerPrison = document.getElementById('param-loyer-prison-affichage');
+    if (inputLoyerPrison && affichageLoyerPrison && etatJeu.parametres) {
+        if (estHote) {
+            inputLoyerPrison.style.display = 'inline-block';
+            affichageLoyerPrison.classList.add('hidden');
+            inputLoyerPrison.checked = etatJeu.parametres.pasDeLoyerEnPrison;
+        } else {
+            inputLoyerPrison.style.display = 'none';
+            affichageLoyerPrison.classList.remove('hidden');
+            
+            if (etatJeu.parametres.pasDeLoyerEnPrison) {
+                affichageLoyerPrison.innerText = "Oui";
+                affichageLoyerPrison.style.color = "#28a745";
+            } else {
+                affichageLoyerPrison.innerText = "Non";
+                affichageLoyerPrison.style.color = "#d9534f";
+            }
+        }
+    }
+
+    const inputBingo = document.getElementById('param-bingo-depart');
+    const affichageBingo = document.getElementById('param-bingo-depart-affichage');
+    if (inputBingo && affichageBingo && etatJeu.parametres) {
+        if (estHote) {
+            inputBingo.style.display = 'inline-block';
+            affichageBingo.classList.add('hidden');
+            inputBingo.checked = etatJeu.parametres.bingoDepart;
+        } else {
+            inputBingo.style.display = 'none';
+            affichageBingo.classList.remove('hidden');
+            
+            if (etatJeu.parametres.bingoDepart) {
+                affichageBingo.innerText = "Oui";
+                affichageBingo.style.color = "#28a745";
+            } else {
+                affichageBingo.innerText = "Non";
+                affichageBingo.style.color = "#d9534f";
+            }
+        }
+    }
+
+    const inputUniformite = document.getElementById('param-uniformite');
+    const affichageUniformite = document.getElementById('param-uniformite-affichage');
+    if (inputUniformite && affichageUniformite && etatJeu.parametres) {
+        if (estHote) {
+            inputUniformite.style.display = 'inline-block';
+            affichageUniformite.classList.add('hidden');
+            inputUniformite.checked = etatJeu.parametres.uniformiteConstruction;
+        } else {
+            inputUniformite.style.display = 'none';
+            affichageUniformite.classList.remove('hidden');
+            
+            if (etatJeu.parametres.uniformiteConstruction) {
+                affichageUniformite.innerText = "Oui";
+                affichageUniformite.style.color = "#28a745";
+            } else {
+                affichageUniformite.innerText = "Non";
+                affichageUniformite.style.color = "#d9534f";
+            }
+        }
+    }
 }
 
 function passerAuLobby() {
     document.getElementById('ecran-login').classList.add('hidden');
     document.getElementById('ecran-lobby').classList.remove('hidden');
+
+    const zoneId = document.getElementById('zone-id-partie');
+    if (zoneId) {
+        if (estHote) {
+            zoneId.style.display = 'block';
+        } else {
+            zoneId.style.display = 'none';
+        }
+    }
 }
 
-function demarrerLaPartie() { envoyerAuServeur({ type: 'LANCER_PARTIE' }); }
+function demarrerLaPartie() { 
+    if (etatJeu.joueurs.length < 2) {
+        alert("❌ Impossible de lancer : il faut au moins 2 joueurs pour jouer !");
+        return;
+    }
+    envoyerAuServeur({ type: 'LANCER_PARTIE' }); 
+}
 function actionLancerDes() { envoyerAuServeur({ type: 'LANCER_DES' }); }
 
 function getCouleur(index) {
@@ -942,8 +1140,14 @@ function traiterArriveeCase(indexJoueur, idJoueur, position, scoreDes) {
         }
         else if (propriete.proprietaire !== idJoueur) {
             const indexProprio = etatJeu.joueurs.findIndex(j => j.id === propriete.proprietaire);
-            const loyer = calculerLoyer(position, propriete.proprietaire, scoreDes);
-            gererPaiementJoueur(indexJoueur, indexProprio, loyer, `de loyer pour ${terrain.nom}`);
+            const proprio = etatJeu.joueurs[indexProprio];
+            
+            if (proprio.enPrison && etatJeu.parametres.pasDeLoyerEnPrison) {
+                etatJeu.log.push(`😴 ${proprio.pseudo} est en prison et ne peut pas percevoir le loyer de ${terrain.nom} !`);
+            } else {
+                const loyer = calculerLoyer(position, propriete.proprietaire, scoreDes);
+                gererPaiementJoueur(indexJoueur, indexProprio, loyer, `de loyer pour ${terrain.nom}`);
+            }
         }
     }
     else if ([2, 7, 17, 22, 33, 36].includes(position)) {
@@ -984,8 +1188,13 @@ function traiterArriveeCase(indexJoueur, idJoueur, position, scoreDes) {
                 
                 if (carte.destination < anciennePosition && carte.destination !== 10) {
                     if (carte.destination === 0) {
-                        joueur.argent += 400;
-                        etatJeu.log.push(`🎯 BINGO ! ${joueur.pseudo} tombe PILE sur le Départ avec sa carte et gagne 400 € !`);
+                        if (etatJeu.parametres.bingoDepart) {
+                            joueur.argent += 400;
+                            etatJeu.log.push(`🎯 BINGO ! ${joueur.pseudo} tombe PILE sur le Départ avec sa carte et gagne 400 € !`);
+                        } else {
+                            joueur.argent += 200;
+                            etatJeu.log.push(`🏁 ${joueur.pseudo} atterrit sur le Départ avec sa carte et reçoit 200 €.`);
+                        }
                     } else {
                         joueur.argent += 200;
                         etatJeu.log.push(`🏁 ${joueur.pseudo} passe le Départ avec sa carte et reçoit 200 €.`);
@@ -1007,6 +1216,11 @@ function traiterArriveeCase(indexJoueur, idJoueur, position, scoreDes) {
         }
     }
     else if (position === 20) {
+        if (!etatJeu.parametres.cagnotteActive) {
+            etatJeu.log.push(`☕ ${joueur.pseudo} se repose tranquillement sur la case Dettes de Benoit.`);
+            return true;
+        }
+        
         let montantCagnotte = etatJeu.cagnotteDettes || 0;
         if (montantCagnotte > 0) {
             joueur.argent += montantCagnotte;
@@ -1039,16 +1253,23 @@ function traiterArriveeCase(indexJoueur, idJoueur, position, scoreDes) {
 
 function gererPaiementBanque(indexJoueur, montant) {
     let joueur = etatJeu.joueurs[indexJoueur];
-    let argentDispo = Math.max(0, joueur.argent);
+    let argentDispo = Math.max(0, joueur.argent); 
     
-    joueur.argent -= montant;
+    joueur.argent -= montant; 
 
     if (joueur.argent < 0) {
-        etatJeu.cagnotteDettes = (etatJeu.cagnotteDettes || 0) + argentDispo;
-        joueur.creancier = 'benoit';
-        etatJeu.log.push(`⚠️ ${joueur.pseudo} est dans le rouge ! Il donne ses ${argentDispo} € aux Dettes de Benoit et doit encore ${Math.abs(joueur.argent)} €.`);
+        if (etatJeu.parametres.cagnotteActive) {
+            etatJeu.cagnotteDettes = (etatJeu.cagnotteDettes || 0) + argentDispo;
+            joueur.creancier = 'benoit'; 
+            etatJeu.log.push(`⚠️ ${joueur.pseudo} est dans le rouge ! Il donne ses ${argentDispo} € aux Dettes de Benoit et doit encore ${Math.abs(joueur.argent)} €.`);
+        } else {
+            joueur.creancier = null;
+            etatJeu.log.push(`⚠️ ${joueur.pseudo} est dans le rouge ! Il doit ${Math.abs(joueur.argent)} € à la banque.`);
+        }
     } else {
-        etatJeu.cagnotteDettes = (etatJeu.cagnotteDettes || 0) + montant;
+        if (etatJeu.parametres.cagnotteActive) {
+            etatJeu.cagnotteDettes = (etatJeu.cagnotteDettes || 0) + montant;
+        }
     }
 }
 
@@ -1187,6 +1408,11 @@ function clicSurCase(idCase) {
                     peutConstruireUniformement = false;
                 }
             }
+            
+            if (!etatJeu.parametres.uniformiteConstruction) {
+                peutConstruireUniformement = true;
+            }
+
             if (!peutConstruireUniformement) {
                 btnConstruire.innerText = "Construisez ailleurs d'abord";
             } else {
@@ -1210,6 +1436,10 @@ function clicSurCase(idCase) {
                 if (INFOS_TERRAINS[key].famille === terrain.famille && etatJeu.proprietes[key]) {
                     if (etatJeu.proprietes[key].maisons > propriete.maisons) peutVendreUniformement = false;
                 }
+            }
+            
+            if (!etatJeu.parametres.uniformiteConstruction) {
+                peutVendreUniformement = true;
             }
 
             if (!cEstMonTour) {
