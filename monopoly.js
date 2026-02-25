@@ -16,7 +16,6 @@ let etatJeu = {
     cagnotteDettes: 0
 };
 
-// --- TES TERRAINS PERSONNALISÉS ---
 const nomsTerrains = [
     "Départ", "Paku Paku", "Surprise", "Pathé Angers", "Taxe 10%", "AD-mobile", "Parking de Biville-la-Baignarde", "Surprise", "Fromager Depannage", "Tribunal Dieppe",
     "Ambleville", "Skatepark Courbevoie", "TotalEnergies Access", "Skatepark Gisors", "Skatepark Cergy", "K-mobile", "Skatepark Achères", "Surprise", "Skatepark Dieppe", "Skatepark Poissy",
@@ -55,7 +54,6 @@ const INFOS_TERRAINS = {
     28: { nom: "The Financier", famille: 10, prix: 150, loyers: [4, 10] },
 };
 
-// --- BASE DE DONNÉES DES CARTES SURPRISES ---
 const CARTES_SURPRISE = [
     { texte: "Kamil est malade et vous lui offrez ses frais médicaux : payez 50 €.", type: "paiement", montant: -50 },
     { texte: "La Fabrique de Julien vous a livré deux pizzas : payez 30 €.", type: "paiement", montant: -30 },
@@ -76,10 +74,6 @@ const CARTES_SURPRISE = [
     { texte: "Vous accompagnez Lucie au restaurant japonais : rendez-vous à Paku Paku.", type: "allerA", destination: 1 }
 ];
 
-// ---------------------------------------------------------
-// 1. INITIALISATION ET CONNEXION
-// ---------------------------------------------------------
-
 peer.on('open', (id) => {
     monId = id;
     if (estHote) document.getElementById('affichage-id').innerText = monId;
@@ -89,13 +83,26 @@ peer.on('connection', (conn) => {
     if (!estHote) return; 
 
     conn.on('open', () => {
+        if (jeuEnCours) {
+            conn.send({ type: 'ERREUR', message: 'Désolé, la partie a déjà commencé !' });
+            setTimeout(() => conn.close(), 500); 
+            return;
+        }
+
         if (etatJeu.joueurs.length >= 5) {
             conn.send({ type: 'ERREUR', message: 'Désolé, la partie est complète (5 joueurs max).' });
             setTimeout(() => conn.close(), 500); 
             return;
         }
+
         connexionsClients.push(conn);
         conn.on('data', (data) => traiterMessageRecu(data, conn));
+        conn.on('close', () => {
+            gererDeconnexion(conn.peer);
+        });
+        conn.on('error', () => {
+            gererDeconnexion(conn.peer);
+        });
     });
 });
 
@@ -124,7 +131,6 @@ function creerPartie() {
     document.getElementById('btn-lancer-partie').classList.remove('hidden');
     document.getElementById('message-attente').classList.add('hidden');
     
-    // NOUVEAU : On affiche le bouton copier uniquement pour l'hôte !
     const btnCopier = document.getElementById('btn-copier');
     if (btnCopier) btnCopier.classList.remove('hidden');
     
@@ -146,11 +152,18 @@ function rejoindrePartie() {
         envoyerAuServeur({ type: 'REJOINDRE', pseudo: monPseudo });
     });
     maConnexionHost.on('data', (data) => traiterMessageRecu(data));
-}
+    maConnexionHost.on('close', () => {
+        if (maConnexionHost.fermetureAttendue) return; 
 
-// ---------------------------------------------------------
-// 2. GESTION DES MESSAGES
-// ---------------------------------------------------------
+        alert("❌ L'hôte de la partie s'est déconnecté. La partie est annulée.");
+        location.reload();
+    });
+
+    maConnexionHost.on('error', () => {
+        alert("❌ Connexion perdue avec l'hôte.");
+        location.reload();
+    });
+}
 
 function envoyerAuServeur(data) {
     if (estHote) traiterLogiqueJeu(data, monId, null);
@@ -168,8 +181,12 @@ function traiterMessageRecu(data, connExpediteur) {
             appliquerEtatJeu();
         } 
         else if (data.type === 'ERREUR') {
+            if (maConnexionHost) maConnexionHost.fermetureAttendue = true;
+            
             alert(data.message);
+            
             if (maConnexionHost) maConnexionHost.close();
+            location.reload();
         }
         else if (data.type === 'PROPOSER_ACHAT') {
             propositionAchatEnCours = data;
@@ -182,9 +199,6 @@ function traiterMessageRecu(data, connExpediteur) {
     }
 }
 
-// ==========================================
-// CALCULATEUR DE LOYERS INTELLIGENT
-// ==========================================
 function calculerLoyer(idCase, idProprio, scoreDes) {
     const terrain = INFOS_TERRAINS[idCase];
     const propriete = etatJeu.proprietes[idCase];
@@ -329,7 +343,7 @@ function traiterLogiqueJeu(data, idJoueur, connExpediteur) {
             const d2 = Math.floor(Math.random() * 6) + 1;
             const score = d1 + d2;
             
-            if (d1 === d2) { // DOUBLE REUSSI
+            if (d1 === d2) {
                 j.enPrison = false;
                 j.toursEnPrison = 0;
                 etatJeu.log.push(`🎲 DOUBLE ! ${j.pseudo} sort de prison et avance de ${score}.`);
@@ -343,16 +357,15 @@ function traiterLogiqueJeu(data, idJoueur, connExpediteur) {
                         etatJeu.tourActuel = (etatJeu.tourActuel + 1) % etatJeu.joueurs.length;
                     }
                 }
-            } else { // RATE
+            } else {
                 j.toursEnPrison++;
                 etatJeu.log.push(`🎲 ${j.pseudo} a fait ${d1} et ${d2}. Pas de double, il reste en prison (${j.toursEnPrison}/3).`);
                 
                 if (j.toursEnPrison >= 3) {
-                    j.enPrison = false; // Relâché
+                    j.enPrison = false;
                     j.toursEnPrison = 0;
                     etatJeu.log.push(`⏳ 3 tours écoulés ! ${j.pseudo} est relâché en Simple Visite.`);
                 }
-                // Dans les 2 cas (raté ou relâché), son tour est terminé
                 etatJeu.tourActuel = (etatJeu.tourActuel + 1) % etatJeu.joueurs.length;
             }
         }
@@ -388,7 +401,6 @@ function traiterLogiqueJeu(data, idJoueur, connExpediteur) {
         if (propriete && propriete.proprietaire === idJoueur) {
             let gain = 0;
             
-            // Calcul du gain
             if (propriete.maisons > 0) {
                 gain = Math.floor(getPrixMaison(terrain.famille) / 2);
                 propriete.maisons--;
@@ -400,16 +412,12 @@ function traiterLogiqueJeu(data, idJoueur, connExpediteur) {
                 etatJeu.log.push(`📜 ${joueur.pseudo} a revendu ${terrain.nom} à la banque pour ${gain} €.`);
             }
 
-            // --- REMBOURSEMENT AUTOMATIQUE DU CRÉANCIER ---
             const ancienneDette = joueur.argent; 
-            joueur.argent += gain; // On ajoute le gain au joueur (ce qui fait remonter son solde vers 0)
+            joueur.argent += gain;
 
             if (ancienneDette < 0) {
-                // Si l'argent repasse en positif, on a remboursé toute la dette (Math.abs(ancienneDette)).
-                // S'il reste négatif, on a remboursé le 'gain' en entier.
                 let montantRembourse = joueur.argent >= 0 ? Math.abs(ancienneDette) : gain;
 
-                // On verse l'argent au bon créancier
                 if (joueur.creancier === 'benoit') {
                     etatJeu.cagnotteDettes = (etatJeu.cagnotteDettes || 0) + montantRembourse;
                 } else if (joueur.creancier) {
@@ -498,10 +506,6 @@ function diffuserEtat() {
     appliquerEtatJeu();
 }
 
-// ---------------------------------------------------------
-// 3. INTERFACE GRAPHIQUE ET PLATEAU
-// ---------------------------------------------------------
-
 function appliquerEtatJeu() {
     if (!jeuEnCours) {
         mettreAJourLobby();
@@ -515,34 +519,27 @@ function appliquerEtatJeu() {
     document.getElementById('tour-joueur').innerText = joueurActuel.pseudo;
     document.getElementById('tour-joueur').style.color = getCouleur(etatJeu.tourActuel);
 
-    // --- GESTION DES BOUTONS (DÉS ET ACHATS DYNAMIQUES) ---
     const cEstAmoi = (joueurActuel.id === monId);
     let btnText = "Attente...";
     let btnDisabled = true;
     const joueurEndette = etatJeu.joueurs.find(j => j.argent < 0);
-
-    // 1. On récupère les éléments HTML
     const btnLancer = document.getElementById('btn-lancer-des');
     const zoneAchat = document.getElementById('zone-achat-terrain');
     const btnAcheter = document.getElementById('btn-acheter-terrain');
 
-    // 2. Réinitialisation de l'affichage par défaut (On montre les dés, on cache l'achat)
     btnLancer.style.display = 'block';
     if (zoneAchat) zoneAchat.style.display = 'none';
 
-    // 3. L'arbre des priorités d'affichage
     if (animationDesEnCours) {
          btnText = "Lancement en cours..."; btnDisabled = true;
     } else if (etatJeu.attenteAchat) {
          if (cEstAmoi && typeof propositionAchatEnCours !== 'undefined' && propositionAchatEnCours) {
-             // C'EST À MOI D'ACHETER ! On cache le bouton "Dés" et on affiche la zone "Achat"
              btnLancer.style.display = 'none';
              if (zoneAchat) zoneAchat.style.display = 'flex';
              
              const prix = propositionAchatEnCours.terrain.prix;
              btnAcheter.innerText = `Acheter (${prix} €)`;
              
-             // Grisé dynamiquement si je n'ai pas assez d'argent
              if (joueurActuel.argent < prix) {
                  btnAcheter.disabled = true;
                  btnAcheter.innerText = `Fonds insuffisants (${prix} €)`;
@@ -550,7 +547,6 @@ function appliquerEtatJeu() {
                  btnAcheter.disabled = false;
              }
          } else {
-             // C'est le tour d'un autre joueur qui réfléchit à son achat
              btnText = "Attente d'une décision..."; btnDisabled = true;
          }
     } else if (joueurEndette) {
@@ -569,11 +565,9 @@ function appliquerEtatJeu() {
         }
     }
 
-    // 4. On applique le texte et l'état final au bouton principal
     btnLancer.disabled = btnDisabled;
     btnLancer.innerText = btnText;
 
-    // --- MISE À JOUR VISUELLE DES DÉS ---
     if (etatJeu.derniersDes) {
         document.getElementById('zone-anim-des').classList.remove('hidden');
         if (!animationDesEnCours) {
@@ -582,7 +576,6 @@ function appliquerEtatJeu() {
         }
     }
 
-    // --- GESTION DE LA PRISON ---
     if (cEstAmoi && joueurActuel.enPrison) {
         afficherModalPrison(joueurActuel);
     } else {
@@ -590,7 +583,6 @@ function appliquerEtatJeu() {
         if(mod) mod.classList.add('hidden');
     }
 
-    // --- MISE À JOUR DU TABLEAU DES SCORES ---
     const tableauScores = document.getElementById('tableau-scores');
     if (tableauScores) {
         tableauScores.innerHTML = ''; 
@@ -604,7 +596,6 @@ function appliquerEtatJeu() {
         });
     }
 
-    // --- NOUVEAU : MISE À JOUR DES COULEURS DES TERRAINS ACHETÉS ---
     for (let i = 0; i < 40; i++) {
         let caseDiv = document.getElementById('case-' + i);
         let zoneMaisons = document.getElementById('maisons-' + i);
@@ -617,7 +608,6 @@ function appliquerEtatJeu() {
                     caseDiv.style.borderColor = getCouleur(proprio.couleur);
                 }
                 
-                // AFFICHAGE DES MAISONS/HÔTELS
                 if (zoneMaisons) {
                     zoneMaisons.innerHTML = '';
                     const nbM = etatJeu.proprietes[i].maisons;
@@ -647,27 +637,23 @@ function appliquerEtatJeu() {
         if (divNom) {
             const montant = etatJeu.cagnotteDettes || 0;
             if (montant > 0) {
-                // S'il y a de l'argent, on l'affiche en bleu clair bien visible
                 divNom.innerHTML = `Dettes de Benoit<br><span style="color: #4da6ff; font-size: clamp(8px, 1.5vmin, 14px); font-weight: bold;">💰 ${montant} €</span>`;
             } else {
-                // Si c'est vide, on l'affiche en tout petit et gris
                 divNom.innerHTML = `Dettes de Benoit<br><span style="color: #777; font-size: clamp(6px, 1.2vmin, 10px);">0 €</span>`;
             }
         }
     }
 
-    // --- Mise à jour des pions ---
-    etatJeu.joueurs.forEach((j, index) => {
-        let pion = document.getElementById('pion-' + index);
+    etatJeu.joueurs.forEach((j) => {
+        let pion = document.getElementById('pion-' + j.couleur);
         if (!pion) {
             pion = document.createElement('div');
-            pion.id = 'pion-' + index;
-            pion.className = `pion pion-${index}`;
+            pion.id = 'pion-' + j.couleur;
+            pion.className = `pion pion-${j.couleur}`; 
             pion.title = j.pseudo;
             document.body.appendChild(pion); 
         }
         
-        // DISTINCTION VISUELLE : Prison ou Visite ?
         if (j.enPrison) {
             const zonePrisonDiv = document.getElementById('pions-prison');
             if (zonePrisonDiv) zonePrisonDiv.appendChild(pion);
@@ -679,16 +665,14 @@ function appliquerEtatJeu() {
 
     const listeHistorique = document.getElementById('liste-historique');
     if (listeHistorique && etatJeu.log.length > 0) {
-        listeHistorique.innerHTML = ''; // On vide la liste
+        listeHistorique.innerHTML = '';
         
-        // NOUVEAU : On fait une copie du log [...etatJeu.log] et on l'inverse (.reverse())
         [...etatJeu.log].reverse().forEach(msg => {
             let li = document.createElement('li');
             li.innerText = msg;
-            listeHistorique.appendChild(li); // Les plus récents s'ajoutent donc en premier !
+            listeHistorique.appendChild(li);
         });
 
-        // On s'assure que la barre de défilement reste tout en haut
         const conteneurHistorique = document.getElementById('historique');
         conteneurHistorique.scrollTop = 0;
     }
@@ -705,8 +689,6 @@ function mettreAJourLobby() {
         liste.appendChild(li);
     });
 
-    // --- NOUVEAU : Message d'attente personnalisé pour les invités ---
-    // Si je ne suis pas l'hôte, et qu'il y a au moins 1 joueur (l'hôte est toujours le 1er, à l'index 0)
     if (!estHote && etatJeu.joueurs.length > 0) {
         const hote = etatJeu.joueurs[0]; 
         const msgAttente = document.getElementById('message-attente');
@@ -725,16 +707,13 @@ function passerAuLobby() {
 
 function demarrerLaPartie() { envoyerAuServeur({ type: 'LANCER_PARTIE' }); }
 function actionLancerDes() { envoyerAuServeur({ type: 'LANCER_DES' }); }
-// Remplace ton ancienne fonction getCouleur par ces deux là :
 
-function getCouleur(index) { 
-    // Les couleurs exactes de tes pions (Rouge, Bleu, Vert, Orange, Violet, Blanc)
+function getCouleur(index) {
     const c = ['#ff4d4d', '#4da6ff', '#33cc33', '#ff9900', '#9933cc', '#ffffff']; 
     return c[index % c.length]; 
 }
 
-function getCouleurFond(index) { 
-    // Les mêmes couleurs, mais avec 25% d'opacité (pour colorer la case sans cacher le texte)
+function getCouleurFond(index) {
     const c = [
         'rgba(255, 77, 77, 0.25)', 
         'rgba(77, 166, 255, 0.25)', 
@@ -746,11 +725,6 @@ function getCouleurFond(index) {
     return c[index % c.length]; 
 }
 
-// --- NOUVELLE GÉNÉRATION DU PLATEAU AVEC IMAGES ---
-
-// Objet pour associer les cases à leurs images.
-// Modifiez les noms de fichiers selon vos besoins.
-// Les cases sans image resteront vides.
 const imagesTerrains = {
     1: "angers.jpg",
     2: "surprise.jpg",
@@ -792,8 +766,6 @@ const imagesTerrains = {
 
 function genererPlateau() {
     const plateau = document.getElementById('plateau');
-    
-    // On met de côté le centre du plateau avant de vider les cases
     const centrePlateau = document.querySelector('.centre-plateau');
     plateau.innerHTML = ''; 
     if (centrePlateau) plateau.appendChild(centrePlateau);
@@ -1567,8 +1539,57 @@ function repondreAchatTerrain(accepte) {
         achat: accepte
     });
     
-    // On vide la variable pour la prochaine fois
     propositionAchatEnCours = null; 
+}
+
+function gererDeconnexion(idJoueurQuittant) {
+    if (!estHote) return;
+
+    const indexJoueur = etatJeu.joueurs.findIndex(j => j.id === idJoueurQuittant);
+    if (indexJoueur === -1) return;
+
+    const joueur = etatJeu.joueurs[indexJoueur];
+    
+    const cEtaitSonTour = (indexJoueur === etatJeu.tourActuel);
+
+    etatJeu.log.push(`🚪 ${joueur.pseudo} s'est déconnecté et quitte la partie !`);
+
+    for (let idCase in etatJeu.proprietes) {
+        if (etatJeu.proprietes[idCase].proprietaire === idJoueurQuittant) {
+            delete etatJeu.proprietes[idCase]; 
+        }
+    }
+
+    const idDuPion = 'pion-' + joueur.couleur;
+    const pionHTML = document.getElementById(idDuPion);
+    if (pionHTML) {
+        pionHTML.remove();
+    }
+
+    etatJeu.joueurs.splice(indexJoueur, 1);
+
+    if (etatJeu.tourActuel >= etatJeu.joueurs.length) {
+        etatJeu.tourActuel = 0;
+    } else if (indexJoueur < etatJeu.tourActuel) {
+        etatJeu.tourActuel--;
+    }
+
+    if (etatJeu.attenteAchat && cEtaitSonTour) {
+        etatJeu.attenteAchat = false;
+        propositionAchatEnCours = null;
+    }
+    
+    if (etatJeu.attenteRemboursement && !etatJeu.joueurs.some(j => j.argent < 0)) {
+        etatJeu.attenteRemboursement = false;
+    }
+
+    connexionsClients = connexionsClients.filter(c => c.peer !== idJoueurQuittant);
+
+    if (etatJeu.joueurs.length === 1 && jeuEnCours) {
+        etatJeu.log.push(`🏆 TOUT LE MONDE A FUI ! ${etatJeu.joueurs[0].pseudo} gagne la partie !`);
+    }
+
+    diffuserEtat();
 }
 
 genererPlateau();
