@@ -318,6 +318,43 @@ function traiterLogiqueJeu(data, idJoueur, connExpediteur) {
         
         diffuserEtat();
     }
+    else if (data.type === 'ABANDONNER') {
+        const indexJoueur = etatJeu.joueurs.findIndex(j => j.id === idJoueur);
+        if (indexJoueur === -1) return;
+
+        const joueur = etatJeu.joueurs[indexJoueur];
+        const cEtaitSonTour = (indexJoueur === etatJeu.tourActuel);
+
+        etatJeu.log.push(`🏳️ ${joueur.pseudo} a abandonné la partie et devient spectateur !`);
+
+        for (let idCase in etatJeu.proprietes) {
+            if (etatJeu.proprietes[idCase].proprietaire === idJoueur) {
+                delete etatJeu.proprietes[idCase]; 
+            }
+        }
+
+        etatJeu.joueurs.splice(indexJoueur, 1);
+
+        if (etatJeu.tourActuel >= etatJeu.joueurs.length) {
+            etatJeu.tourActuel = 0;
+        } else if (indexJoueur < etatJeu.tourActuel) {
+            etatJeu.tourActuel--;
+        }
+
+        if (etatJeu.attenteAchat && cEtaitSonTour) {
+            etatJeu.attenteAchat = false;
+            propositionAchatEnCours = null;
+        }
+        if (etatJeu.attenteRemboursement && !etatJeu.joueurs.some(j => j.argent < 0)) {
+            etatJeu.attenteRemboursement = false;
+        }
+
+        if (etatJeu.joueurs.length === 1 && jeuEnCours) {
+            etatJeu.log.push(`🏆 VICTOIRE ! ${etatJeu.joueurs[0].pseudo} est le dernier survivant !`);
+        }
+
+        diffuserEtat();
+    }
     else if (data.type === 'ACTION_PRISON') {
         const j = etatJeu.joueurs[etatJeu.tourActuel];
         
@@ -566,6 +603,16 @@ function appliquerEtatJeu() {
     }
 
     btnLancer.disabled = btnDisabled;
+    const jeSuisEnJeu = etatJeu.joueurs.some(j => j.id === monId);
+    const btnAbandonner = document.getElementById('btn-abandonner');
+    
+    if (!jeSuisEnJeu) {
+        btnLancer.style.display = 'none';
+        if (zoneAchat) zoneAchat.style.display = 'none';
+        if (btnAbandonner) btnAbandonner.style.display = 'none';
+    } else {
+        if (btnAbandonner) btnAbandonner.style.display = 'block';
+    }
     btnLancer.innerText = btnText;
 
     if (etatJeu.derniersDes) {
@@ -660,6 +707,13 @@ function appliquerEtatJeu() {
         } else {
             const zonePionsDiv = document.getElementById('zone-pions-' + j.position);
             if (zonePionsDiv) zonePionsDiv.appendChild(pion);
+        }
+    });
+
+    document.querySelectorAll('.pion').forEach(pionDOM => {
+        const couleurId = parseInt(pionDOM.id.split('-')[1]);
+        if (!etatJeu.joueurs.some(j => j.couleur === couleurId)) {
+            pionDOM.remove();
         }
     });
 
@@ -1455,6 +1509,12 @@ function repondreAchatTerrain(accepte) {
     });
     
     propositionAchatEnCours = null; 
+}
+
+function actionAbandonner() {
+    if (window.confirm("⚠️ ATTENTION ⚠️\n\nÊtes-vous sûr de vouloir abandonner ?\n\nTous vos terrains retourneront à la banque et vous deviendrez un simple spectateur.")) {
+        envoyerAuServeur({ type: 'ABANDONNER' });
+    }
 }
 
 function gererDeconnexion(idJoueurQuittant) {
