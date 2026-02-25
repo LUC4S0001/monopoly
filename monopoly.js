@@ -6,7 +6,7 @@ let connexionsClients = [];
 let monPseudo = "";
 let estHote = false;
 let jeuEnCours = false;
-
+let propositionAchatEnCours = null;
 
 let etatJeu = {
     joueurs: [], 
@@ -172,7 +172,8 @@ function traiterMessageRecu(data, connExpediteur) {
             if (maConnexionHost) maConnexionHost.close();
         }
         else if (data.type === 'PROPOSER_ACHAT') {
-            afficherModalAchat(data.idCase, data.terrain);
+            propositionAchatEnCours = data;
+            appliquerEtatJeu();
         }
         else if (data.type === 'PROPOSER_ECHANGE') {
             listeOffresRecues.push(data);
@@ -514,15 +515,44 @@ function appliquerEtatJeu() {
     document.getElementById('tour-joueur').innerText = joueurActuel.pseudo;
     document.getElementById('tour-joueur').style.color = getCouleur(etatJeu.tourActuel);
 
+    // --- GESTION DES BOUTONS (DÉS ET ACHATS DYNAMIQUES) ---
     const cEstAmoi = (joueurActuel.id === monId);
     let btnText = "Attente...";
     let btnDisabled = true;
     const joueurEndette = etatJeu.joueurs.find(j => j.argent < 0);
 
+    // 1. On récupère les éléments HTML
+    const btnLancer = document.getElementById('btn-lancer-des');
+    const zoneAchat = document.getElementById('zone-achat-terrain');
+    const btnAcheter = document.getElementById('btn-acheter-terrain');
+
+    // 2. Réinitialisation de l'affichage par défaut (On montre les dés, on cache l'achat)
+    btnLancer.style.display = 'block';
+    if (zoneAchat) zoneAchat.style.display = 'none';
+
+    // 3. L'arbre des priorités d'affichage
     if (animationDesEnCours) {
          btnText = "Lancement en cours..."; btnDisabled = true;
     } else if (etatJeu.attenteAchat) {
-         btnText = "Attente d'une décision..."; btnDisabled = true;
+         if (cEstAmoi && typeof propositionAchatEnCours !== 'undefined' && propositionAchatEnCours) {
+             // C'EST À MOI D'ACHETER ! On cache le bouton "Dés" et on affiche la zone "Achat"
+             btnLancer.style.display = 'none';
+             if (zoneAchat) zoneAchat.style.display = 'flex';
+             
+             const prix = propositionAchatEnCours.terrain.prix;
+             btnAcheter.innerText = `Acheter (${prix} €)`;
+             
+             // Grisé dynamiquement si je n'ai pas assez d'argent
+             if (joueurActuel.argent < prix) {
+                 btnAcheter.disabled = true;
+                 btnAcheter.innerText = `Fonds insuffisants (${prix} €)`;
+             } else {
+                 btnAcheter.disabled = false;
+             }
+         } else {
+             // C'est le tour d'un autre joueur qui réfléchit à son achat
+             btnText = "Attente d'une décision..."; btnDisabled = true;
+         }
     } else if (joueurEndette) {
         btnDisabled = true;
         btnText = (joueurEndette.id === monId) ? "Remboursez vos dettes !" : `Attente de ${joueurEndette.pseudo}...`;
@@ -539,9 +569,11 @@ function appliquerEtatJeu() {
         }
     }
 
-    document.getElementById('btn-lancer-des').disabled = btnDisabled;
-    document.getElementById('btn-lancer-des').innerText = btnText;
+    // 4. On applique le texte et l'état final au bouton principal
+    btnLancer.disabled = btnDisabled;
+    btnLancer.innerText = btnText;
 
+    // --- MISE À JOUR VISUELLE DES DÉS ---
     if (etatJeu.derniersDes) {
         document.getElementById('zone-anim-des').classList.remove('hidden');
         if (!animationDesEnCours) {
@@ -550,6 +582,7 @@ function appliquerEtatJeu() {
         }
     }
 
+    // --- GESTION DE LA PRISON ---
     if (cEstAmoi && joueurActuel.enPrison) {
         afficherModalPrison(joueurActuel);
     } else {
@@ -889,15 +922,21 @@ function traiterArriveeCase(indexJoueur, idJoueur, position, scoreDes) {
 
     // 1. TERRAIN ACHETABLE
     if (terrain) {
-        if (!propriete) {
-            diffuserEtat(); 
-            if (idJoueur === monId) afficherModalAchat(position, terrain);
-            else {
-                const conn = connexionsClients.find(c => c.peer === idJoueur);
-                if (conn) conn.send({ type: 'PROPOSER_ACHAT', idCase: position, terrain: terrain });
+        if (!propriete && terrain.prix) {
+            etatJeu.attenteAchat = true;
+            
+            if (idJoueur === monId) {
+                // L'hôte est tombé sur la case
+                propositionAchatEnCours = { idCase: position, terrain: terrain };
+            } else {
+                // Un client est tombé sur la case, on lui envoie la proposition
+                const connClient = connexionsClients.find(c => c.peer === idJoueur);
+                if (connClient) {
+                    connClient.send({ type: 'PROPOSER_ACHAT', idCase: position, terrain: terrain });
+                }
             }
-            return false; 
-        } 
+            return false; // Le tour n'est pas terminé, on attend la décision
+        }
         else if (propriete.proprietaire !== idJoueur) {
             const indexProprio = etatJeu.joueurs.findIndex(j => j.id === propriete.proprietaire);
             const loyer = calculerLoyer(position, propriete.proprietaire, scoreDes);
@@ -1242,8 +1281,21 @@ function actionConstruire() {
 }
 
 function actionVendre() {
-    envoyerAuServeur({ type: 'VENDRE', idCase: caseConstructionEnCours });
-    fermerModalInfos();
+    const terrain = INFOS_TERRAINS[caseConstructionEnCours];
+    const propriete = etatJeu.proprietes[caseConstructionEnCours];
+    let messageConfirmation = "";
+    
+    if (propriete.maisons > 0) {
+        let typeBatiment = propriete.maisons === 5 ? "votre hôtel" : "une maison";
+        messageConfirmation = `⚠️ ATTENTION ⚠️\n\nÊtes-vous sûr de vouloir vendre ${typeBatiment} sur ${terrain.nom} ?\n\nVous ne récupérerez que la moitié de son prix d'achat.`;
+    } else {
+        messageConfirmation = `⚠️ ATTENTION ⚠️\n\nÊtes-vous sûr de vouloir revendre le terrain "${terrain.nom}" à la banque ?\n\nIl redeviendra libre et n'importe qui pourra l'acheter !`;
+    }
+
+    if (window.confirm(messageConfirmation)) {
+        envoyerAuServeur({ type: 'VENDRE', idCase: caseConstructionEnCours });
+        fermerModalInfos();
+    }
 }
 
 // ==========================================
@@ -1253,6 +1305,11 @@ let listeOffresRecues = [];
 
 function ouvrirModalEchange() {
     if (!jeuEnCours || etatJeu.joueurs.length < 2) return alert("Pas assez de joueurs pour échanger !");
+
+    document.getElementById('echange-donne-argent').value = 0;
+    document.getElementById('echange-donne-cartes').value = 0;
+    document.getElementById('echange-demande-argent').value = 0;
+    document.getElementById('echange-demande-cartes').value = 0;
     
     const select = document.getElementById('echange-cible');
     select.innerHTML = '';
@@ -1498,14 +1555,20 @@ function afficherModalAchat(idCase, terrain) {
     document.getElementById('modal-achat').classList.remove('hidden');
 }
 
-function actionAcheterTerrain() {
-    document.getElementById('modal-achat').classList.add('hidden');
-    envoyerAuServeur({ type: 'REPONSE_ACHAT', idCase: caseAchatEnCours, achat: true });
-}
-
-function actionPasserTerrain() {
-    document.getElementById('modal-achat').classList.add('hidden');
-    envoyerAuServeur({ type: 'REPONSE_ACHAT', idCase: caseAchatEnCours, achat: false });
+// ==========================================
+// RÉPONSE À UNE PROPOSITION D'ACHAT
+// ==========================================
+function repondreAchatTerrain(accepte) {
+    if (!propositionAchatEnCours) return;
+    
+    envoyerAuServeur({
+        type: 'REPONSE_ACHAT',
+        idCase: propositionAchatEnCours.idCase,
+        achat: accepte
+    });
+    
+    // On vide la variable pour la prochaine fois
+    propositionAchatEnCours = null; 
 }
 
 genererPlateau();

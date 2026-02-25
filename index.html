@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Monopoly - Multijoueur</title>
+    <link rel="icon" type="png" href="icon.png">
     <link rel="stylesheet" href="monopoly.css">
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
@@ -43,8 +44,15 @@
                         </div>
                     </div>
 
-                    <button id="btn-lancer-des" onclick="lancerDesAnime()" disabled>Attente...</button>
+                    <div id="zone-actions-tour" style="margin-bottom: 10px;">
+                        <button id="btn-lancer-des" onclick="lancerDesAnime()" disabled>Attente...</button>
+                        
+                        <div id="zone-achat-terrain" style="display: none; gap: 10px;">
+                            <button id="btn-acheter-terrain" onclick="repondreAchatTerrain(true)" style="background-color: #28a745; flex: 1; padding: 12px; font-weight: bold;">Acheter</button>
+                            <button id="btn-refuser-terrain" onclick="repondreAchatTerrain(false)" style="background-color: #d9534f; flex: 1; padding: 12px; font-weight: bold;">Passer</button>
+                        </div>
                     </div>
+                </div>
             </div>
 
             <div id="panneau-droit">
@@ -62,17 +70,6 @@
                         <li>La partie commence !</li>
                     </ul>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="modal-achat" class="hidden">
-        <div class="modal-content">
-            <h3 id="nom-terrain-achat">Nom du terrain</h3>
-            <p>Prix : <strong id="prix-terrain-achat">0 €</strong></p>
-            <div class="modal-buttons">
-                <button id="btn-acheter" onclick="actionAcheterTerrain()">Acheter</button>
-                <button id="btn-passer" onclick="actionPasserTerrain()" style="background-color: #d9534f;">Passer</button>
             </div>
         </div>
     </div>
@@ -138,18 +135,18 @@
             <div style="display: flex; gap: 20px; margin-top: 15px; text-align: left; color: white;">
                 <div style="flex: 1; border: 1px solid #555; padding: 10px; border-radius: 5px; background: rgba(0,0,0,0.3);">
                     <h4 style="color: #4da6ff; margin-top: 0;">Je donne :</h4>
-                    <label>💰 Argent : <input type="number" id="echange-donne-argent" min="0" value="0" style="width: 70px;"></label><br><br>
-                    <label>🃏 Cartes Prison : <input type="number" id="echange-donne-cartes" min="0" value="0" style="width: 50px;"></label><br><br>
+                    <label>💰 Argent : <input type="number" autocomplete="off" id="echange-donne-argent" min="0" value="0" style="width: 70px;"></label><br><br>
+                    <label>🃏 Cartes Prison : <input type="number" autocomplete="off" id="echange-donne-cartes" min="0" value="0" style="width: 50px;"></label><br><br>
                     <p style="margin-bottom: 5px; font-weight: bold; font-size: 14px;">🏠 Terrains :</p>
-                    <div id="echange-donne-terrains" style="max-height: 120px; overflow-y: auto; font-size: 13px;"></div>
+                    <div id="echange-donne-terrains" autocomplete="off" style="max-height: 120px; overflow-y: auto; font-size: 13px;"></div>
                 </div>
                 
                 <div style="flex: 1; border: 1px solid #555; padding: 10px; border-radius: 5px; background: rgba(0,0,0,0.3);">
                     <h4 style="color: #ff4d4d; margin-top: 0;">Je demande :</h4>
-                    <label>💰 Argent : <input type="number" id="echange-demande-argent" min="0" value="0" style="width: 70px;"></label><br><br>
-                    <label>🃏 Cartes Prison : <input type="number" id="echange-demande-cartes" min="0" value="0" style="width: 50px;"></label><br><br>
+                    <label>💰 Argent : <input type="number" autocomplete="off" id="echange-demande-argent" min="0" value="0" style="width: 70px;"></label><br><br>
+                    <label>🃏 Cartes Prison : <input type="number" autocomplete="off" id="echange-demande-cartes" min="0" value="0" style="width: 50px;"></label><br><br>
                     <p style="margin-bottom: 5px; font-weight: bold; font-size: 14px;">🏠 Terrains :</p>
-                    <div id="echange-demande-terrains" style="max-height: 120px; overflow-y: auto; font-size: 13px;"></div>
+                    <div id="echange-demande-terrains" autocomplete="off" style="max-height: 120px; overflow-y: auto; font-size: 13px;"></div>
                 </div>
             </div>
             

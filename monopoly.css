@@ -11,7 +11,7 @@ body {
 .hidden { display: none !important; }
 input { padding: 8px; margin: 5px; width: 70%; background-color: #2c2c2c; color: white; border: 1px solid #555; border-radius: 4px; }
 button { padding: 10px 20px; background: #208337; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
-button:disabled { background: #444; color: #888; cursor: not-allowed; }
+button:disabled {background-color: #666 !important; color: white !important; cursor: not-allowed !important; opacity: 0.8;}
 .separator { margin: 15px 0; font-weight: bold; color: #888; }
 
 /* ----------------------------------- */
