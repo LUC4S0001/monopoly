@@ -537,11 +537,17 @@ function traiterLogiqueJeu(data, idJoueur, connExpediteur) {
         const receveur = etatJeu.joueurs.find(j => j.id === idJoueur);
 
         if (data.accepte) {
-            if (donneur.argent < data.offre.argent || receveur.argent < data.demande.argent) {
+            const perteDonneur = data.offre.argent - data.demande.argent;
+            const perteReceveur = data.demande.argent - data.offre.argent;
+
+            if ((perteDonneur > 0 && perteDonneur > Math.max(0, donneur.argent)) || 
+                (perteReceveur > 0 && perteReceveur > Math.max(0, receveur.argent))) {
+                
                 etatJeu.log.push(`❌ L'échange entre ${donneur.pseudo} et ${receveur.pseudo} a échoué (fonds insuffisants entre temps).`);
                 diffuserEtat();
                 return;
             }
+
             donneur.argent = donneur.argent - data.offre.argent + data.demande.argent;
             receveur.argent = receveur.argent + data.offre.argent - data.demande.argent;
             donneur.carteSortiePrison = Math.max(0, (donneur.carteSortiePrison || 0) - data.offre.cartes + data.demande.cartes);
@@ -580,6 +586,10 @@ function gererDeplacementApresDes(indexJoueur, idJoueur, score) {
 }
 
 function diffuserEtat() {
+    if (estHote && jeuEnCours) {
+        verifierFailliteAutomatique();
+    }
+    
     const message = { type: 'MISE_A_JOUR', etat: etatJeu, jeuDemarre: jeuEnCours };
     connexionsClients.forEach(c => c.send(message));
     appliquerEtatJeu();
@@ -1119,6 +1129,47 @@ function genererPlateau() {
     }
 }
 
+function verifierFailliteAutomatique() {
+    for (let i = etatJeu.joueurs.length - 1; i >= 0; i--) {
+        let j = etatJeu.joueurs[i];
+        
+        if (j.argent < 0) {
+            let possedeTerrains = false;
+            for (let idCase in etatJeu.proprietes) {
+                if (etatJeu.proprietes[idCase].proprietaire === j.id) {
+                    possedeTerrains = true;
+                    break;
+                }
+            }
+            
+            let possedeCartes = (j.carteSortiePrison && j.carteSortiePrison > 0);
+            
+            if (!possedeTerrains && !possedeCartes) {
+                etatJeu.log.push(`💀 FAILLITE ! ${j.pseudo} n'a plus d'argent ni de biens à vendre. Il est éliminé d'office !`);
+                
+                const cEtaitSonTour = (i === etatJeu.tourActuel);
+                
+                etatJeu.joueurs.splice(i, 1);
+                
+                if (etatJeu.tourActuel >= etatJeu.joueurs.length) {
+                    etatJeu.tourActuel = 0;
+                } else if (i < etatJeu.tourActuel) {
+                    etatJeu.tourActuel--;
+                }
+                
+                if (etatJeu.attenteAchat && cEtaitSonTour) {
+                    etatJeu.attenteAchat = false;
+                    propositionAchatEnCours = null;
+                }
+                
+                if (etatJeu.attenteRemboursement && !etatJeu.joueurs.some(joueur => joueur.argent < 0)) {
+                    etatJeu.attenteRemboursement = false;
+                }
+            }
+        }
+    }
+}
+
 function traiterArriveeCase(indexJoueur, idJoueur, position, scoreDes) {
     const terrain = INFOS_TERRAINS[position];
     const propriete = etatJeu.proprietes[position];
@@ -1532,9 +1583,10 @@ function majInterfaceEchange() {
     const moi = etatJeu.joueurs.find(j => j.id === monId);
     const cible = etatJeu.joueurs.find(j => j.id === targetId);
     
-    document.getElementById('echange-donne-argent').max = Math.max(0, moi.argent);
+    document.getElementById('echange-donne-argent').removeAttribute('max');
+    document.getElementById('echange-demande-argent').removeAttribute('max');
+    
     document.getElementById('echange-donne-cartes').max = moi.carteSortiePrison || 0;
-    document.getElementById('echange-demande-argent').max = Math.max(0, cible.argent);
     document.getElementById('echange-demande-cartes').max = cible.carteSortiePrison || 0;
 
     const divMoi = document.getElementById('echange-donne-terrains');
@@ -1565,8 +1617,25 @@ function actionEnvoyerEchange() {
     const offreTerrains = Array.from(document.querySelectorAll('.chk-donne-terrain:checked')).map(cb => parseInt(cb.value));
     const demandeTerrains = Array.from(document.querySelectorAll('.chk-demande-terrain:checked')).map(cb => parseInt(cb.value));
 
+    const moi = etatJeu.joueurs.find(j => j.id === monId);
+    const cible = etatJeu.joueurs.find(j => j.id === targetId);
+    
+    const perteMoi = offreArgent - demandeArgent;
+    const perteCible = demandeArgent - offreArgent;
+
+    if (perteMoi > 0 && perteMoi > Math.max(0, moi.argent)) {
+        return alert("❌ Vous n'avez pas assez d'argent disponible pour combler la différence !");
+    }
+    if (perteCible > 0 && perteCible > Math.max(0, cible.argent)) {
+        return alert(`❌ ${cible.pseudo} n'a pas assez d'argent pour payer la différence !`);
+    }
+
     const totalOffre = offreArgent + offreCartes + offreTerrains.length;
     const totalDemande = demandeArgent + demandeCartes + demandeTerrains.length;
+
+    if (totalOffre === 0 || totalDemande === 0) {
+        return alert("❌ Échange invalide : Chaque joueur doit proposer au moins 1 élément (argent, carte ou terrain) !");
+    }
 
     if (totalOffre === 0 || totalDemande === 0) {
         return alert("❌ Échange invalide : Chaque joueur doit proposer au moins 1 élément (argent, carte ou terrain) !");
